@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="grid grid-cols-12 gap-6">
+  <aside class="col-span-12 md:col-span-3">
+    <h1 class="text-2xl font-semibold tracking-tight mb-4">Settings</h1>
+    <nav class="card p-2 text-sm">
+      <a href="#account" class="block px-3 py-2 rounded hover:bg-ink-800/60 ink-link">Account</a>
+      <a href="#github" class="block px-3 py-2 rounded hover:bg-ink-800/60 ink-link">GitHub connection</a>
+      {% if role == 'admin' %}<a href="#llm" class="block px-3 py-2 rounded hover:bg-ink-800/60 ink-link">LLM provider</a>{% endif %}
+      {% if role in ('senior','admin') %}
+        <a href="#team" class="block px-3 py-2 rounded hover:bg-ink-800/60 ink-link">Team & invites</a>
+      {% endif %}
+      {% if role == 'admin' %}<a href="#users" class="block px-3 py-2 rounded hover:bg-ink-800/60 ink-link">Users</a>{% endif %}
+      {% if role == 'admin' %}<a href="#audit" class="block px-3 py-2 rounded hover:bg-ink-800/60 ink-link">Audit log</a>{% endif %}
+      <a href="#jobs" class="block px-3 py-2 rounded hover:bg-ink-800/60 ink-link">Ingest jobs</a>
+    </nav>
+  </aside>
+
+  <div class="col-span-12 md:col-span-9 space-y-6">
+
+    <section id="account" class="card p-6">
+      <h2 class="text-lg font-semibold">Account</h2>
+      <p class="text-sm text-gray-400 mt-1">Signed in as <span class="text-white">{{ user }}</span> · <span class="badge badge-role-{{ role }}">{{ role }}</span></p>
+    </section>
+
+    <section id="github" class="card p-6">
+      <div class="flex items-baseline justify-between">
+        <h2 class="text-lg font-semibold">GitHub connection</h2>
+        {% if github.github_login and role in ('senior', 'admin') %}
+        <form method="post" action="/ingest/backfill" class="m-0">
+          <button class="text-xs px-3 py-1.5 rounded border border-accent text-accent hover:bg-accent/10">Backfill 50 PRs now</button>
+        </form>
+        {% endif %}
+      </div>
+      {% if github.github_login %}
+      <p class="text-sm text-gray-300 mt-2">Connected as <span class="text-white">@{{ github.github_login }}</span></p>
+      <p class="text-sm text-gray-400">Org: <span class="text-white">{{ github.org_login or "—" }}</span></p>
+      <p class="text-sm text-gray-400">Repo: <span class="text-white">{{ github.repo_full or "all repos" }}</span></p>
+      <p class="text-xs text-gray-500 mt-1">Last validated: {{ github.last_validated_at.strftime("%Y-%m-%d %H:%M") if github.last_validated_at else "—" }}</p>
+      {% if role in ('senior', 'admin') %}
+      <div class="flex gap-2 mt-3">
+        <a href="/setup/github" class="text-xs px-2 py-1 rounded border border-white/10 hover:border-accent">Reconnect</a>
+        <form method="post" action="/settings/github/disconnect" class="m-0">
+          <button class="text-xs px-2 py-1 rounded border border-rose-500/30 text-rose-300 hover:bg-rose-500/10" onclick="return confirm('Disconnect GitHub?')">Disconnect</button>
+        </form>
+      </div>
+      {% endif %}
+      {% else %}
+      <p class="text-sm text-gray-400 mt-2">Not connected.</p>
+      {% if role in ('senior', 'admin') %}
+      <a href="/setup/github" class="mt-3 inline-block text-sm bg-accent rounded px-3 py-1.5 text-white">Connect GitHub</a>
+      {% endif %}
+      {% endif %}
+    </section>
+
+    {% if role == 'admin' %}
+    <section id="llm" class="card p-6">
+      <h2 class="text-lg font-semibold">LLM provider</h2>
+      {% if llm.provider %}
+      <p class="text-sm text-gray-300 mt-2">{{ llm.provider }} · <span class="text-gray-400">{{ llm.model }}</span></p>
+      <p class="text-xs text-gray-500 mt-1">Configured: {{ llm.configured_at.strftime("%Y-%m-%d") if llm.configured_at else "—" }}</p>
+      {% else %}
+      <p class="text-sm text-rose-300 mt-2">Not configured.</p>
+      {% endif %}
+      <a href="/settings/llm" class="mt-3 inline-block text-xs px-2 py-1 rounded border border-white/10 hover:border-accent">Change provider / key</a>
+    </section>
+    {% endif %}
+
+    {% if role in ('senior','admin') %}
+    <section id="team" class="card p-6">
+      <div class="flex items-baseline justify-between">
+        <h2 class="text-lg font-semibold">Team & invites</h2>
+        <a href="/team" class="text-sm ink-link">Issue invite →</a>
+      </div>
+      <p class="text-sm text-gray-400 mt-1">{% if role == 'admin' %}Admin can invite seniors or juniors.{% else %}Seniors can invite juniors.{% endif %}</p>
+      {% if recent_invites %}
+      <ul class="mt-3 text-sm divide-y divide-white/5">
+        {% for i in recent_invites %}
+        <li class="py-2 flex items-center gap-3">
+          <span class="badge badge-role-{{ i.role }}">{{ i.role }}</span>
+          <span class="text-gray-400">{% if i.redeemed_by %}redeemed{% elif i.revoked_at %}revoked{% else %}pending{% endif %}</span>
+          {% if i.note %}<span class="text-gray-500 text-xs">— {{ i.note }}</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="text-sm text-gray-500 mt-3">No invites yet.</p>{% endif %}
+    </section>
+    {% endif %}
+
+    {% if role == 'admin' %}
+    <section id="users" class="card p-6">
+      <div class="flex items-baseline justify-between">
+        <h2 class="text-lg font-semibold">Users ({{ users_list|length }})</h2>
+        <a href="/admin/users" class="text-sm ink-link">Manage →</a>
+      </div>
+      <ul class="mt-3 text-sm divide-y divide-white/5">
+        {% for u in users_list[:6] %}
+        <li class="py-2 flex items-center gap-3">
+          <span class="text-white">{{ u.username }}</span>
+          <span class="badge badge-role-{{ u.role }}">{{ u.role }}</span>
+          {% if not u.active %}<span class="text-xs text-gray-500">deactivated</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section id="audit" class="card p-6">
+      <div class="flex items-baseline justify-between">
+        <h2 class="text-lg font-semibold">Audit log</h2>
+        <a href="/admin/audit" class="text-sm ink-link">View all →</a>
+      </div>
+      <ul class="mt-3 text-xs divide-y divide-white/5">
+        {% for r in audit_recent[:8] %}
+        <li class="py-2 flex items-center gap-3 text-gray-300">
+          <span class="text-gray-500">{{ r.created_at.strftime("%H:%M") }}</span>
+          <span>{{ r.username or "—" }}</span>
+          <span class="text-accent">{{ r.action }}</span>
+          {% if r.target %}<span class="text-gray-400 truncate">{{ r.target }}</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    <section id="jobs" class="card p-6">
+      <div class="flex items-baseline justify-between">
+        <h2 class="text-lg font-semibold">Ingest jobs</h2>
+        {% if github.org_login and role in ('senior', 'admin') %}
+        <form method="post" action="/ingest/backfill" class="m-0">
+          <button class="text-xs px-3 py-1.5 rounded border border-accent text-accent hover:bg-accent/10">Run backfill</button>
+        </form>
+        {% endif %}
+      </div>
+      {% if recent_jobs %}
+      <ul class="mt-3 text-sm divide-y divide-white/5">
+        {% for j in recent_jobs[:5] %}
+        <li class="py-2 flex items-center gap-3">
+          <span class="badge badge-{{ 'low' if j.status == 'done' else 'medium' if j.status in ('running','queued') else 'high' }}">{{ j.status }}</span>
+          <a class="ink-link" href="/jobs/{{ j.id }}">{{ j.kind }}</a>
+          {% if j.target %}<span class="text-gray-400">{{ j.target }}</span>{% endif %}
+          <span class="text-gray-500 text-xs ml-auto">{{ j.processed }}/{{ j.total }} · sources +{{ j.new_sources }} · decisions +{{ j.new_decisions }} · findings +{{ j.new_findings }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="text-sm text-gray-500 mt-3">No jobs yet.</p>{% endif %}
+    </section>
+
+  </div>
+</div>
+{% endblock %}

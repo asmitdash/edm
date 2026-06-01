@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Audit log{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold tracking-tight mb-6">Audit log</h1>
+<div class="card overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-ink-800 text-gray-400">
+      <tr>
+        <th class="text-left px-4 py-2">When</th>
+        <th class="text-left px-4 py-2">User</th>
+        <th class="text-left px-4 py-2">Action</th>
+        <th class="text-left px-4 py-2">Target</th>
+        <th class="text-left px-4 py-2">Detail</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-white/5">
+      {% for r in rows %}
+      <tr class="hover:bg-ink-800/40">
+        <td class="px-4 py-2 text-gray-500">{{ r.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td class="px-4 py-2">{{ r.username or "—" }}</td>
+        <td class="px-4 py-2 text-accent">{{ r.action }}</td>
+        <td class="px-4 py-2 text-gray-300">{{ r.target or "" }}</td>
+        <td class="px-4 py-2 text-gray-500 text-xs">{{ r.metadata }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

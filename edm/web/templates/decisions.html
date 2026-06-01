@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Decisions{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold tracking-tight mb-6">Decisions</h1>
+{% if decisions %}
+  <div class="space-y-3">
+    {% for d in decisions %}
+    <div class="card p-4">
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <div class="text-sm text-gray-500 mb-1">decision</div>
+          <h2 class="text-base font-semibold">{{ d.title }}</h2>
+          <p class="mt-1 text-sm text-gray-300">{{ d.summary }}</p>
+          {% if d.source_url %}
+            <a href="{{ d.source_url }}" target="_blank" class="mt-2 inline-block text-xs ink-link">source: {{ d.source_title or d.source_url }}</a>
+          {% endif %}
+        </div>
+        <div class="flex flex-col items-end shrink-0 gap-1">
+          {% if d.status == 'active' %}
+            <span class="badge badge-low">{{ d.status }}</span>
+          {% else %}
+            <span class="badge badge-medium">{{ d.status }}</span>
+          {% endif %}
+          <span class="text-xs text-gray-500">{{ d.created_at.strftime("%Y-%m-%d") }}</span>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card p-6 text-sm text-gray-400">No decisions extracted yet.</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Team & invites{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold tracking-tight mb-6">Invite a teammate</h1>
+{% if message %}<div class="mb-4 text-sm text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded px-3 py-2">{{ message }}</div>{% endif %}
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div class="card p-6">
+    <h2 class="font-semibold">Issue an invite link</h2>
+    <p class="text-sm text-gray-400 mt-1">{% if role == 'admin' %}You can invite seniors or juniors.{% else %}You can invite juniors.{% endif %} The link is one-time use, expires in 48 hours.</p>
+    <form method="post" action="/team/invite" class="mt-4 space-y-3">
+      <label class="block text-xs uppercase tracking-wide text-gray-400 mb-1">Role</label>
+      <select name="invite_role" required class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2">
+        <option value="junior">junior</option>
+        {% if role == 'admin' %}<option value="senior">senior</option>{% endif %}
+      </select>
+      <input type="text" name="note" placeholder="Note (e.g. 'For Priya in onboarding')" class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2" />
+      <button class="w-full bg-accent hover:bg-blue-500 text-white rounded px-3 py-2">Generate invite link</button>
+    </form>
+  </div>
+
+  <div class="card p-6">
+    <h2 class="font-semibold">Active invites</h2>
+    {% if invites %}
+    <ul class="mt-3 divide-y divide-white/5 text-sm">
+      {% for i in invites %}
+      <li class="py-2">
+        <div class="flex items-center justify-between gap-3">
+          <span class="badge badge-role-{{ i.role }}">{{ i.role }}</span>
+          <span class="text-gray-400">{% if i.redeemed_by %}redeemed{% elif i.revoked_at %}revoked{% else %}pending{% endif %}</span>
+        </div>
+        {% if not i.redeemed_by and not i.revoked_at %}
+          <a class="text-xs ink-link break-all" href="/invite/{{ i.token }}">{{ base_url }}/invite/{{ i.token }}</a>
+        {% endif %}
+        {% if i.note %}<p class="text-xs text-gray-500 mt-1">{{ i.note }}</p>{% endif %}
+        <p class="text-xs text-gray-500">expires {{ i.expires_at.strftime("%Y-%m-%d %H:%M") }}</p>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-sm text-gray-400 mt-3">No invites yet.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

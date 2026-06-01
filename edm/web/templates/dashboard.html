@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Overview{% endblock %}
+{% block content %}
+<div class="flex items-baseline justify-between mb-6">
+  <h1 class="text-2xl font-semibold tracking-tight">Overview</h1>
+  <div class="flex items-center gap-3">
+    {% if github_connected and role in ('senior', 'admin') %}
+    <form method="post" action="/ingest/backfill" class="m-0">
+      <button class="text-sm border border-white/10 hover:border-accent rounded px-3 py-1.5 text-gray-200">Backfill from GitHub</button>
+    </form>
+    {% endif %}
+    <a href="/graph" class="text-sm ink-link">Open graph view →</a>
+    <a href="/report.pdf" class="text-sm bg-accent rounded px-3 py-1.5 text-white">Download PDF report</a>
+  </div>
+</div>
+
+{% if active_job %}
+<div class="mb-4 card p-4 border-accent/40">
+  <div class="flex items-center justify-between">
+    <div>
+      <p class="text-sm text-gray-300">Backfill in progress: <span class="text-white">{{ active_job.target }}</span> · {{ active_job.processed }}/{{ active_job.total }}</p>
+      <div class="bg-ink-800 rounded h-1.5 mt-2 w-72 overflow-hidden"><div class="h-full bg-accent" style="width: {{ ((active_job.processed / active_job.total * 100) if active_job.total else 0) | round(0) }}%"></div></div>
+    </div>
+    <a href="/jobs/{{ active_job.id }}" class="text-sm ink-link">Watch progress →</a>
+  </div>
+</div>
+{% endif %}
+
+<div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+  <div class="card p-4"><div class="text-3xl font-semibold">{{ counts.sources }}</div><div class="text-xs uppercase tracking-wide text-gray-400 mt-1">Sources</div></div>
+  <div class="card p-4"><div class="text-3xl font-semibold text-accent">{{ counts.decisions }}</div><div class="text-xs uppercase tracking-wide text-gray-400 mt-1">Decisions</div></div>
+  <div class="card p-4"><div class="text-3xl font-semibold text-accent-emerald">{{ counts.assumptions }}</div><div class="text-xs uppercase tracking-wide text-gray-400 mt-1">Assumptions</div></div>
+  <div class="card p-4"><div class="text-3xl font-semibold text-accent-amber">{{ counts.constraints }}</div><div class="text-xs uppercase tracking-wide text-gray-400 mt-1">Constraints</div></div>
+  <div class="card p-4"><div class="text-3xl font-semibold text-accent-rose">{{ counts.open_findings }}</div><div class="text-xs uppercase tracking-wide text-gray-400 mt-1">Open findings</div></div>
+</div>
+
+<section class="mt-10 grid grid-cols-1 lg:grid-cols-2 gap-4">
+  <div class="card p-5">
+    <h2 class="text-lg font-semibold mb-3">Top contributors</h2>
+    {% if top_contributors %}
+    <ul class="space-y-2 text-sm">
+      {% for c in top_contributors %}
+      <li class="flex items-center justify-between gap-3">
+        <span class="flex items-center gap-2 min-w-0">
+          {% if c.avatar_url %}<img src="{{ c.avatar_url }}" class="w-6 h-6 rounded-full" />{% endif %}
+          <span class="truncate">@{{ c.github_login }}</span>
+        </span>
+        <span class="text-gray-400 text-xs">{{ c.n_decisions }} decisions · {{ c.n_prs }} PRs</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="text-sm text-gray-400">No contributor data yet — refresh members from the Members tab.</p>{% endif %}
+  </div>
+  <div class="card p-5">
+    <h2 class="text-lg font-semibold mb-3">Members with no activity</h2>
+    {% if zero_contributors %}
+    <ul class="space-y-2 text-sm">
+      {% for c in zero_contributors %}
+      <li class="flex items-center gap-2 text-gray-400">
+        {% if c.avatar_url %}<img src="{{ c.avatar_url }}" class="w-6 h-6 rounded-full opacity-60" />{% endif %}
+        @{{ c.github_login }} <span class="text-gray-600">— 0 PRs</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}<p class="text-sm text-gray-400">Everyone in the org has shipped at least one PR (or no GitHub data yet).</p>{% endif %}
+  </div>
+</section>
+
+<section class="mt-10">
+  <div class="flex items-baseline justify-between mb-3">
+    <h2 class="text-lg font-semibold">Recent open findings</h2>
+    <a href="/findings" class="text-sm ink-link">View all →</a>
+  </div>
+  {% if recent_findings %}
+    <div class="space-y-3">
+      {% for f in recent_findings %}
+      <div class="card p-4">
+        <div class="flex items-start justify-between gap-4">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="badge badge-{{ f.severity }}">{{ f.severity }}</span>
+              <a href="{{ f.triggering_url }}" target="_blank" class="ink-link text-sm truncate">{{ f.triggering_title }}</a>
+            </div>
+            <p class="mt-2 text-sm text-gray-300">Conflicts with prior decision <span class="text-white">{{ f.prior_title }}</span></p>
+            <p class="mt-1 text-sm text-gray-400">{{ f.rationale }}</p>
+          </div>
+          <span class="text-xs text-gray-500 shrink-0">{{ f.created_at.strftime("%Y-%m-%d %H:%M") }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card p-6 text-sm text-gray-400">No open findings yet. Run extraction after ingesting sources.</div>
+  {% endif %}
+</section>
+{% endblock %}

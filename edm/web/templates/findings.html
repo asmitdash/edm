@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Findings{% endblock %}
+{% block content %}
+<div class="flex items-baseline justify-between mb-6">
+  <h1 class="text-2xl font-semibold tracking-tight">Findings</h1>
+  <div class="flex gap-2">
+    {% for s in ["open", "acknowledged", "dismissed", "resolved"] %}
+      <a href="/findings?status={{ s }}"
+         class="text-xs px-2 py-1 rounded border {{ 'border-accent text-accent' if status == s else 'border-white/10 text-gray-400 hover:text-white' }}">
+        {{ s }}
+      </a>
+    {% endfor %}
+  </div>
+</div>
+{% if findings %}
+  <div class="space-y-3">
+    {% for f in findings %}
+    <div class="card p-4">
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <span class="badge badge-{{ f.severity }}">{{ f.severity }}</span>
+            <a href="{{ f.triggering_url }}" target="_blank" class="ink-link text-sm truncate">{{ f.triggering_title }}</a>
+          </div>
+          <p class="mt-2 text-sm text-gray-300">Conflicts with prior decision <span class="text-white">{{ f.prior_title }}</span></p>
+          <p class="mt-1 text-sm text-gray-400">{{ f.rationale }}</p>
+          {% if f.posted_pr_comment_url %}
+            <a href="{{ f.posted_pr_comment_url }}" target="_blank" class="mt-2 inline-block text-xs ink-link">PR comment posted →</a>
+          {% endif %}
+        </div>
+        <span class="text-xs text-gray-500 shrink-0">{{ f.created_at.strftime("%Y-%m-%d %H:%M") }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card p-6 text-sm text-gray-400">No {{ status }} findings.</div>
+{% endif %}
+{% endblock %}

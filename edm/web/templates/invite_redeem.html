@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Accept invite{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto">
+  <div class="card p-8">
+    <h1 class="text-xl font-semibold tracking-tight">Accept invite</h1>
+    <p class="text-sm text-gray-400 mt-1">Role: <span class="badge badge-role-{{ invite.role }}">{{ invite.role }}</span></p>
+    {% if error %}<div class="mt-4 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded px-3 py-2">{{ error }}</div>{% endif %}
+    <form method="post" action="/invite/{{ invite.token }}" class="mt-6 space-y-4">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-gray-400 mb-1">Pick a username</label>
+        <input name="username" required minlength="3" class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2" />
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-gray-400 mb-1">Set a password</label>
+        <input name="password" type="password" required minlength="8" class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2" />
+      </div>
+      <button class="w-full bg-accent hover:bg-blue-500 text-white rounded px-3 py-2">Create account & sign in</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

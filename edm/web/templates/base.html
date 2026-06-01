@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}EDM{% endblock %} · EDM — your engineering decision Brain</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: { 950: '#0B0F19', 900: '#111827', 800: '#1F2937', 700: '#374151' },
+            accent: { DEFAULT: '#3B82F6', emerald: '#10B981', amber: '#F59E0B', rose: '#EF4444', violet: '#8B5CF6' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background: #0B0F19; color: #E5E7EB; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    .badge { display:inline-flex; align-items:center; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; }
+    .badge-low    { background: rgba(16,185,129,0.15); color: #6EE7B7; }
+    .badge-medium { background: rgba(245,158,11,0.15); color: #FCD34D; }
+    .badge-high   { background: rgba(239,68,68,0.15);  color: #FCA5A5; }
+    .badge-role-admin  { background: rgba(139,92,246,0.15); color: #C4B5FD; }
+    .badge-role-senior { background: rgba(59,130,246,0.15); color: #93C5FD; }
+    .badge-role-junior { background: rgba(107,114,128,0.15); color: #D1D5DB; }
+    .card { background: #111827; border: 1px solid rgba(255,255,255,0.06); border-radius: 0.75rem; }
+    .ink-link { color: #93C5FD; }
+    .ink-link:hover { color: #BFDBFE; }
+  </style>
+</head>
+<body class="h-full">
+{% if user %}
+  <nav class="border-b border-white/5 bg-ink-900">
+    <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-5 flex-wrap">
+        <a href="/" class="font-semibold tracking-tight text-white" title="EDM — your engineering decision Brain">EDM</a>
+        <a href="/" class="text-sm text-gray-300 hover:text-white">Overview</a>
+        <a href="/decisions" class="text-sm text-gray-300 hover:text-white">Decisions</a>
+        <a href="/findings" class="text-sm text-gray-300 hover:text-white">Findings</a>
+        <a href="/sources" class="text-sm text-gray-300 hover:text-white">Sources</a>
+        <a href="/members" class="text-sm text-gray-300 hover:text-white">Members</a>
+        <a href="/graph" class="text-sm text-gray-300 hover:text-white">Graph</a>
+        {% if role in ('senior', 'admin') %}
+          <a href="/sources/upload" class="text-sm text-gray-300 hover:text-white">Upload</a>
+        {% endif %}
+        <a href="/report.pdf" class="text-sm text-gray-300 hover:text-white">PDF</a>
+        <a href="/settings" class="text-sm text-gray-300 hover:text-white">Settings</a>
+      </div>
+      <form action="/logout" method="post" class="m-0 flex items-center gap-3">
+        <span class="text-xs text-gray-500">{{ user }}</span>
+        {% if role %}<span class="badge badge-role-{{ role }}">{{ role }}</span>{% endif %}
+        <button class="text-xs text-gray-300 hover:text-white border border-white/10 rounded px-2 py-1">Sign out</button>
+      </form>
+    </div>
+  </nav>
+{% endif %}
+<main class="max-w-6xl mx-auto px-6 py-8">
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

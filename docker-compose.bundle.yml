@@ -1,0 +1,60 @@
+# EDM — Engineering Decision Memory ("your engineering decision Brain")
+# Self-hosted bundle: Postgres+pgvector + the EDM app.
+#
+# Two ways to use this file:
+#
+# 1) Quickstart (pull the published image — no local build needed):
+#       cp .env.example .env   # fill in API keys + EDM_SESSION_SECRET
+#       docker compose -f docker-compose.bundle.yml up -d
+#
+# 2) Build from source (contributors / customised images):
+#       Comment out the `image:` line below and uncomment the `build:` block.
+#       docker compose -f docker-compose.bundle.yml up -d --build
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: edm
+      POSTGRES_PASSWORD: edm
+      POSTGRES_DB: edm
+    volumes:
+      - edm_pgdata:/var/lib/postgresql/data
+      - ./scripts/postgres-init.sh:/docker-entrypoint-initdb.d/00-extensions.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U edm -d edm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: asmittdashh/edm:0.0.1
+    # build:                       # uncomment to build from source instead
+    #   context: .
+    #   dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://edm:edm@postgres:5432/edm
+      EDM_LLM_PROVIDER: ${EDM_LLM_PROVIDER:-gemini}
+      EDM_EMBEDDING_PROVIDER: ${EDM_EMBEDDING_PROVIDER:-voyage}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-5}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY:-}
+      VOYAGE_MODEL: ${VOYAGE_MODEL:-voyage-3}
+      EDM_SESSION_SECRET: ${EDM_SESSION_SECRET:-please-change-me}
+      EDM_ADMIN_USER: ${EDM_ADMIN_USER:-admin}
+      EDM_ADMIN_PASSWORD: ${EDM_ADMIN_PASSWORD:-edm-admin}
+      EDM_LOG_LEVEL: ${EDM_LOG_LEVEL:-INFO}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:-}
+    ports:
+      - "8088:8088"
+    restart: unless-stopped
+
+volumes:
+  edm_pgdata:

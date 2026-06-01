@@ -1,0 +1,17 @@
+.env
+.venv/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.pyc
+secrets/
+*.pem
+dist/
+build/
+*.egg-info/
+.git/
+.github/
+node_modules/
+.playwright-mcp/
+demo_graph.html
+tests/

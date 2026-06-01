@@ -1,0 +1,30 @@
+.env
+.env.local
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+secrets/
+*.pem
+dist/
+build/
+*.egg-info/
+.DS_Store
+node_modules/
+
+# Generated artifacts (rendered locally for demo, not source)
+demo_graph.html
+graph.html
+edm_report_sample.pdf
+*.log
+# pyvis-rendered vendor scratch
+lib/
+secrets/
+
+# Editor / OS noise
+.idea/
+.vscode/
+
+# Anything under .playwright-mcp/ is local browser-driver scratch
+.playwright-mcp/

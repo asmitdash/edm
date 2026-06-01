@@ -1,0 +1,58 @@
+[project]
+name = "edm"
+version = "0.0.1"
+description = "Engineering Decision Memory — causal graph of engineering decisions"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.40.0",
+    "google-genai>=0.3.0",
+    "voyageai>=0.3.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "typer>=0.13.0",
+    "rich>=13.9.0",
+    "psycopg[binary,pool]>=3.2.0",
+    "pgvector>=0.3.0",
+    "sqlalchemy>=2.0.36",
+    "alembic>=1.14.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.6.0",
+    "PyGithub>=2.5.0",
+    "pyvis>=0.3.2",
+    "tenacity>=9.0.0",
+    "python-dotenv>=1.0.1",
+    "httpx>=0.28.0",
+    "structlog>=24.4.0",
+    "jinja2>=3.1.4",
+    "itsdangerous>=2.2.0",
+    "argon2-cffi>=23.1.0",
+    "python-multipart>=0.0.20",
+    "openai>=1.55.0",
+    "cryptography>=44.0.0",
+    "reportlab>=4.2.5",
+    "matplotlib>=3.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+]
+
+[project.scripts]
+edm = "edm.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["edm"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"migrations/001_init.sql" = "edm/_migrations/001_init.sql"
+"migrations/002_users_roles_install.sql" = "edm/_migrations/002_users_roles_install.sql"
+"migrations/003_ingest_jobs.sql" = "edm/_migrations/003_ingest_jobs.sql"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

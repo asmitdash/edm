@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Members{% endblock %}
+{% block content %}
+<div class="flex items-baseline justify-between mb-6">
+  <h1 class="text-2xl font-semibold tracking-tight">GitHub org members</h1>
+  {% if role in ('senior', 'admin') and org_login %}
+  <form method="post" action="/members/refresh">
+    <button class="text-xs px-3 py-1 rounded border border-white/10 text-gray-300 hover:text-white">Refresh from GitHub</button>
+  </form>
+  {% endif %}
+</div>
+
+{% if not org_login %}
+  <div class="card p-6 text-sm text-gray-400">
+    GitHub is not connected. <a class="ink-link" href="/settings/github">Connect from Settings</a> to populate members.
+  </div>
+{% elif not stats %}
+  <div class="card p-6 text-sm text-gray-400">
+    No members snapshotted yet for <span class="text-white">{{ org_login }}</span>.
+    {% if role in ('senior', 'admin') %}Click "Refresh from GitHub" above.{% endif %}
+  </div>
+{% else %}
+<div class="card overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-ink-800 text-gray-400">
+      <tr>
+        <th class="text-left px-4 py-2">Member</th>
+        <th class="text-left px-4 py-2">PRs</th>
+        <th class="text-left px-4 py-2">Decisions</th>
+        <th class="text-left px-4 py-2">Conflicts</th>
+        <th class="text-left px-4 py-2">Last activity</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-white/5">
+      {% for m in stats %}
+      <tr class="hover:bg-ink-800/40 {% if m.n_prs == 0 %}text-gray-500{% endif %}">
+        <td class="px-4 py-2">
+          <div class="flex items-center gap-2">
+            {% if m.avatar_url %}<img src="{{ m.avatar_url }}" class="w-6 h-6 rounded-full" />{% endif %}
+            <a class="ink-link" href="{{ m.profile_url }}" target="_blank">@{{ m.github_login }}</a>
+            {% if m.display_name %}<span class="text-gray-500">{{ m.display_name }}</span>{% endif %}
+            {% if m.n_prs == 0 %}<span class="badge badge-medium">no activity</span>{% endif %}
+          </div>
+        </td>
+        <td class="px-4 py-2">{{ m.n_prs }}</td>
+        <td class="px-4 py-2 text-accent">{{ m.n_decisions }}</td>
+        <td class="px-4 py-2 {% if m.n_findings > 0 %}text-rose-300{% endif %}">{{ m.n_findings }}</td>
+        <td class="px-4 py-2 text-gray-500">{{ m.last_activity_at[:10] if m.last_activity_at else "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

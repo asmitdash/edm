@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Setup · Pick org{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <div class="card p-8">
+    <h1 class="text-2xl font-semibold tracking-tight">Connected as @{{ github_login }}</h1>
+    <p class="text-sm text-gray-400 mt-1">Pick the org to scope EDM to. You can change this later in Settings.</p>
+    {% if error %}<div class="mt-4 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded px-3 py-2">{{ error }}</div>{% endif %}
+
+    {% if not orgs %}
+      <div class="mt-6 card p-4 bg-amber-500/10 text-amber-200 text-sm">
+        No orgs visible to this token. Either you aren't a member of any GitHub org, or your token lacks <code>read:org</code> scope.
+        <br /><a class="ink-link" href="/setup/github/start">Try again</a> · <a class="ink-link" href="/setup/skip">Skip</a>
+      </div>
+    {% else %}
+      <form method="post" action="/setup/github/finish" class="mt-6 space-y-3">
+        <label class="block text-xs uppercase tracking-wide text-gray-400 mb-1">Organisation</label>
+        <select name="org_login" required class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2">
+          {% for o in orgs %}<option value="{{ o.login }}">{{ o.login }}</option>{% endfor %}
+        </select>
+        <label class="block text-xs uppercase tracking-wide text-gray-400 mb-1 mt-3">Repo (optional)</label>
+        <input name="repo_full" placeholder="org/repo (leave empty to ingest all repos later)" class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2" />
+        <button class="w-full bg-accent hover:bg-blue-500 text-white font-medium rounded px-3 py-2 mt-3">Save & finish setup</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

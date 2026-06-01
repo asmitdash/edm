@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Setup · Admin{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <ol class="flex gap-2 mb-8 text-xs text-gray-400">
+    <li class="text-white">1. Admin account</li><li>›</li>
+    <li>2. LLM provider</li><li>›</li>
+    <li>3. GitHub (optional)</li>
+  </ol>
+  <div class="card p-8">
+    <h1 class="text-2xl font-semibold tracking-tight">Create the admin account</h1>
+    <p class="text-sm text-gray-400 mt-1">This is the install-wide root user. Only one exists.</p>
+    {% if error %}<div class="mt-4 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded px-3 py-2">{{ error }}</div>{% endif %}
+    <form method="post" action="/setup/admin" class="mt-6 space-y-4">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-gray-400 mb-1">Username</label>
+        <input name="username" required minlength="3" class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2 outline-none focus:border-accent" />
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-gray-400 mb-1">Password</label>
+        <input name="password" type="password" required minlength="8" class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2 outline-none focus:border-accent" />
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-gray-400 mb-1">Confirm password</label>
+        <input name="password_confirm" type="password" required minlength="8" class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2 outline-none focus:border-accent" />
+      </div>
+      <button class="w-full bg-accent hover:bg-blue-500 text-white font-medium rounded px-3 py-2">Create admin & continue</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

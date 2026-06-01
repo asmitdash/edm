@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Job · {{ job.kind }}{% endblock %}
+{% block content %}
+<div class="max-w-3xl">
+  <h1 class="text-2xl font-semibold tracking-tight mb-1">Backfill job</h1>
+  <p class="text-sm text-gray-400 mb-6"><span class="badge badge-role-senior">{{ job.kind }}</span> · target <span class="text-white">{{ job.target or "—" }}</span></p>
+
+  <div class="card p-6">
+    <div class="flex items-center justify-between text-sm">
+      <span id="status" class="badge badge-{{ 'low' if job.status == 'done' else 'medium' if job.status in ('running','queued') else 'high' }}">{{ job.status }}</span>
+      <span class="text-gray-400">started <span id="started">{{ job.started_at.strftime('%H:%M:%S') }}</span></span>
+    </div>
+    <div class="mt-4">
+      <div class="bg-ink-800 rounded h-2 overflow-hidden">
+        <div id="bar" class="h-full bg-accent" style="width: {{ ((job.processed / job.total * 100) if job.total else 0) | round(0) }}%"></div>
+      </div>
+      <p class="mt-2 text-xs text-gray-400"><span id="processed">{{ job.processed }}</span> / <span id="total">{{ job.total }}</span> processed</p>
+    </div>
+
+    <div class="grid grid-cols-3 gap-3 mt-4">
+      <div class="card p-3"><div class="text-xs text-gray-500">New sources</div><div class="text-2xl font-semibold text-accent" id="ns">{{ job.new_sources }}</div></div>
+      <div class="card p-3"><div class="text-xs text-gray-500">New decisions</div><div class="text-2xl font-semibold text-accent-emerald" id="nd">{{ job.new_decisions }}</div></div>
+      <div class="card p-3"><div class="text-xs text-gray-500">New findings</div><div class="text-2xl font-semibold text-accent-rose" id="nf">{{ job.new_findings }}</div></div>
+    </div>
+
+    {% if job.error %}<div class="mt-4 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded px-3 py-2"><span id="err">{{ job.error }}</span></div>{% endif %}
+
+    <div class="mt-6 flex gap-2">
+      <a href="/" class="text-sm px-3 py-1.5 rounded border border-white/10 hover:border-accent">Back to dashboard</a>
+      <a href="/decisions" class="text-sm px-3 py-1.5 rounded border border-white/10 hover:border-accent">View decisions</a>
+      <a href="/findings" class="text-sm px-3 py-1.5 rounded border border-white/10 hover:border-accent">View findings</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  const JOB_ID = "{{ job.id }}";
+  async function poll() {
+    try {
+      const r = await fetch(`/api/jobs/${JOB_ID}`);
+      if (!r.ok) return;
+      const j = await r.json();
+      document.getElementById('status').textContent = j.status;
+      document.getElementById('processed').textContent = j.processed;
+      document.getElementById('total').textContent = j.total;
+      document.getElementById('ns').textContent = j.new_sources;
+      document.getElementById('nd').textContent = j.new_decisions;
+      document.getElementById('nf').textContent = j.new_findings;
+      if (j.total > 0) {
+        document.getElementById('bar').style.width = Math.round(j.processed / j.total * 100) + '%';
+      }
+      if (j.status === 'running' || j.status === 'queued') {
+        setTimeout(poll, 2500);
+      }
+    } catch (e) {}
+  }
+  if ("{{ job.status }}" === "running" || "{{ job.status }}" === "queued") poll();
+</script>
+{% endblock %}
