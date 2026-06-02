@@ -1,7 +1,9 @@
 # EDM — Company Brain, Decision Memory, and SOP Generator
 
 [![Docker Hub](https://img.shields.io/badge/docker-asmittdashh%2Fedm-blue?logo=docker)](https://hub.docker.com/r/asmittdashh/edm)
-![status](https://img.shields.io/badge/status-alpha-orange)
+[![python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
+[![status](https://img.shields.io/badge/status-alpha%20v0.0.2-orange)]()
+[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **EDM** started as Engineering Decision Memory and has grown into a one-stop **Company Brain**: every company has critical know-how scattered across PRs, emails, Slack, support tickets, wikis, and people's heads. EDM pulls that knowledge out, structures it, keeps it current, and exposes two artefacts AI agents and humans both consume — **a queryable causal graph** and **executable skills files**.
 
@@ -119,17 +121,24 @@ edm serve    # http://127.0.0.1:8088
 
 ## First-time sign-in walkthrough
 
-1. **Open http://127.0.0.1:8088/.** You'll be redirected to `/setup` (the first-run wizard).
-2. **Step 1 — Create the admin account.** Pick a username and password. This is the install-wide root user. Only one admin exists.
-3. **Step 2 — Pick an LLM provider.**
-   - **Google Gemini** (recommended for the demo): cheap, fast, supports vision. Get a key at https://aistudio.google.com/apikey.
-   - **OpenAI**: strict JSON-schema output. Get a key at https://platform.openai.com/api-keys.
+The four-step wizard order in v0.0.2+:
+
+1. **Open http://127.0.0.1:8088/.** You'll be redirected to `/setup` — the first-run wizard.
+2. **Step 1 — Database.** Paste a Postgres URL (e.g. the one printed by `docker compose`). EDM tests the connection, confirms `pgvector` + `pgcrypto` are present, applies all migrations, and seeds 5 SOP templates. Idempotent — safe to retry.
+3. **Step 2 — Admin account.** Pick a username and password. The install-wide root user. Only one admin exists.
+4. **Step 3 — LLM + embeddings.** Pick an LLM provider:
+   - **Google Gemini** (recommended for the demo): cheap, fast, supports vision. Key at https://aistudio.google.com/apikey.
    - **Anthropic Claude**: best reasoning. Key at https://console.anthropic.com/settings/keys.
-   - **OpenRouter**: routes to many models behind one API. Key at https://openrouter.ai/keys.
-   - The wizard makes a small validation call before saving. The key is encrypted at rest with a Fernet key derived from `EDM_SESSION_SECRET`.
-4. **Step 3 — (Optional) Connect GitHub.** EDM uses GitHub's OAuth Device Flow. Click "Start GitHub Device Flow", get a one-time code, type it at https://github.com/login/device, pick your org, optionally scope to a single repo.
-5. **Auto-backfill kicks off.** Once GitHub is connected, EDM ingests the **50 most-recent PRs** in the background. The dashboard shows a live progress bar. Decisions and contradictions populate as it processes.
-6. **Sign in.** Once setup is complete, you land on `/login`. Use the username and password you just created.
+   - **OpenAI**: strict JSON-schema output. Key at https://platform.openai.com/api-keys.
+   - **OpenRouter**: routes to many models. Key at https://openrouter.ai/keys.
+
+   Optionally paste a Voyage embedding key in the same form for production-grade semantic retrieval (leave blank to use the offline stub). The wizard makes a small validation call before saving. Keys are encrypted at rest with a Fernet key derived from `EDM_SESSION_SECRET`.
+5. **Step 4 — Connectors (optional).**
+   - **GitHub** (engineering source): OAuth Device Flow. Once connected, EDM auto-ingests the **50 most-recent PRs** in the background.
+   - **Gmail** (company-brain source): Google Device Flow, read-only scope. Pulls threads through the brain pipeline. UI at `/setup/gmail`.
+
+   Both are optional and can be added later from `/setup/connect`.
+6. **Sign in.** Setup complete → `/login` → use the credentials you set in step 2.
 
 ---
 
