@@ -17,13 +17,14 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import text
 from starlette.middleware.sessions import SessionMiddleware
 
-from edm import audit, install_config, setup_flow, users as users_repo
+from edm import audit, auto_setup, install_config, runtime_config, setup_flow, users as users_repo
 from edm.api import auth
 from edm.api.github_bot import handle_pull_request_event
+from edm.api.sop_routes import sop_router
 from edm.config import get_settings
 from edm.db import session_scope
 from edm import jobs
-from edm.ingest import github_oauth
+from edm.ingest import github_oauth, gmail_oauth
 from edm.ingest.backfill import spawn_backfill
 from edm.ingest.members import member_stats, refresh_members
 from edm.ingest.uploads import ingest_upload
@@ -35,12 +36,18 @@ from edm.web.report import build_pdf
 configure_logging()
 log = get_logger(__name__)
 
+# IMPORTANT: ensure runtime config (DB URL, session secret) is loaded into env
+# BEFORE Settings is first instantiated. The auto-setup wizard writes to that
+# file; on subsequent restarts the values get hydrated here.
+runtime_config.load_into_env()
+runtime_config.ensure_session_secret()
+
 settings = get_settings()
-app = FastAPI(title="Engineering Decision Memory")
+app = FastAPI(title="EDM — Company Brain & SOP Generator")
 
 app.add_middleware(
     SessionMiddleware,
-    secret_key=settings.session_secret,
+    secret_key=settings.session_secret or runtime_config.ensure_session_secret(),
     session_cookie="edm_session",
     max_age=settings.session_max_age_hours * 3600,
     same_site="lax",
@@ -52,6 +59,9 @@ _STATIC_DIR = Path(__file__).resolve().parent.parent / "web" / "static"
 templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
 if _STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+
+# Company Brain + SOP Generator routes (procedures, sops, sop-gen, brain).
+app.include_router(sop_router)
 
 
 # ---------- helpers ----------
@@ -77,7 +87,9 @@ def _json_rows(rows) -> Response:
 
 
 def _gate_setup(request: Request) -> RedirectResponse | None:
-    """If setup is not complete, redirect to /setup unless we're already there."""
+    """If setup is not complete, redirect to /setup unless we're already there.
+
+    Order: database -> admin -> llm -> (optional gmail/github) -> done."""
     if setup_flow.is_setup_complete():
         return None
     if request.url.path.startswith(("/setup", "/static", "/api/health")):
@@ -91,11 +103,41 @@ def _gate_setup(request: Request) -> RedirectResponse | None:
 def setup_root(request: Request) -> Response:
     if setup_flow.is_setup_complete():
         return RedirectResponse(url="/login", status_code=303)
+    if not setup_flow.is_database_configured():
+        return RedirectResponse(url="/setup/database", status_code=303)
     if not users_repo.has_active_admin():
         return RedirectResponse(url="/setup/admin", status_code=303)
     if not install_config.get_llm_config().provider:
         return RedirectResponse(url="/setup/llm", status_code=303)
-    return RedirectResponse(url="/setup/github", status_code=303)
+    return RedirectResponse(url="/setup/connect", status_code=303)
+
+
+# ---- Step 0: database ----
+
+@app.get("/setup/database", response_class=HTMLResponse)
+def setup_database_get(request: Request, error: str | None = None, message: str | None = None) -> Response:
+    if setup_flow.is_database_configured():
+        return RedirectResponse(url="/setup", status_code=303)
+    suggested = (
+        runtime_config.get("database_url")
+        or "postgresql+psycopg://edm:edm@127.0.0.1:5432/edm"
+    )
+    return templates.TemplateResponse(
+        request, "setup_database.html",
+        _ctx(request, suggested=suggested, error=error, message=message),
+    )
+
+
+@app.post("/setup/database")
+def setup_database_post(request: Request, database_url: str = Form(...)) -> Response:
+    result = auto_setup.configure_database(database_url)
+    if not result["ok"]:
+        return templates.TemplateResponse(
+            request, "setup_database.html",
+            _ctx(request, suggested=database_url, error=result["message"], message=None),
+            status_code=400,
+        )
+    return RedirectResponse(url="/setup/admin", status_code=303)
 
 
 @app.get("/setup/admin", response_class=HTMLResponse)
@@ -150,6 +192,7 @@ def setup_llm_post(
     provider: str = Form(...),
     model: str = Form(...),
     api_key: str = Form(...),
+    voyage_api_key: str = Form(""),
 ) -> Response:
     user = auth.current_user(request)
     if user is None or user.role != "admin":
@@ -163,7 +206,31 @@ def setup_llm_post(
             _ctx(request, providers=_PROVIDERS_UI, error=f"Key validation failed: {result['error']}"),
             status_code=400,
         )
-    return RedirectResponse(url="/setup/github", status_code=303)
+    # Persist embedding choice. Stub keeps offline / dev easy. Voyage is the
+    # production default once a key is provided.
+    if voyage_api_key.strip():
+        runtime_config.update(voyage_api_key=voyage_api_key.strip(), embedding_provider="voyage")
+    else:
+        runtime_config.update(embedding_provider="stub")
+    runtime_config.load_into_env()
+    # Re-import to swap embedder singleton.
+    from edm.extract import embeddings as _emb
+    _emb.reset_for_tests()
+    return RedirectResponse(url="/setup/connect", status_code=303)
+
+
+@app.get("/setup/connect", response_class=HTMLResponse)
+def setup_connect_get(request: Request) -> Response:
+    """Optional connectors hub: GitHub + Gmail. User can skip both and finish."""
+    user = auth.current_user(request)
+    if user is None:
+        return RedirectResponse(url="/setup/admin", status_code=303)
+    return templates.TemplateResponse(
+        request, "setup_connect.html",
+        _ctx(request,
+             github=install_config.get_github_install(),
+             gmail_connected=bool(runtime_config.get("gmail_access_token"))),
+    )
 
 
 @app.get("/setup/github", response_class=HTMLResponse)
@@ -254,8 +321,120 @@ def setup_github_finish(
 def setup_skip(request: Request) -> Response:
     user = auth.current_user(request)
     if user:
-        audit.log(user_id=user.id, action="setup.skip_github")
+        audit.log(user_id=user.id, action="setup.skip_connectors")
     return templates.TemplateResponse(request, "setup_done.html", _ctx(request))
+
+
+# ---- Gmail (optional connector) ----
+
+@app.get("/setup/gmail", response_class=HTMLResponse)
+def setup_gmail_get(request: Request, error: str | None = None) -> Response:
+    if (r := auth.require_role(request, "senior", "admin")):
+        return r
+    cfg = runtime_config.load()
+    return templates.TemplateResponse(
+        request, "setup_gmail.html",
+        _ctx(request,
+             gmail_email=cfg.get("gmail_email"),
+             has_client_id=bool(cfg.get("gmail_client_id")),
+             device=request.session.get("setup_gmail_device"),
+             error=error),
+    )
+
+
+@app.post("/setup/gmail/save-client")
+def setup_gmail_save_client(
+    request: Request,
+    client_id: str = Form(...),
+    client_secret: str = Form(...),
+) -> Response:
+    if (r := auth.require_role(request, "senior", "admin")):
+        return r
+    runtime_config.update(gmail_client_id=client_id.strip(), gmail_client_secret=client_secret.strip())
+    return RedirectResponse(url="/setup/gmail", status_code=303)
+
+
+@app.post("/setup/gmail/start")
+def setup_gmail_start(request: Request) -> Response:
+    if (r := auth.require_role(request, "senior", "admin")):
+        return r
+    cfg = runtime_config.load()
+    if not cfg.get("gmail_client_id") or not cfg.get("gmail_client_secret"):
+        return RedirectResponse(url="/setup/gmail?error=Save+Google+OAuth+client+credentials+first", status_code=303)
+    try:
+        device = gmail_oauth.request_device_code(client_id=cfg["gmail_client_id"])
+    except Exception as e:
+        return templates.TemplateResponse(
+            request, "setup_gmail.html",
+            _ctx(request, gmail_email=cfg.get("gmail_email"),
+                 has_client_id=True, device=None, error=f"Google error: {e}"),
+            status_code=502,
+        )
+    request.session["setup_gmail_device"] = {
+        "device_code": device.device_code,
+        "user_code": device.user_code,
+        "verification_url": device.verification_url,
+        "expires_in": device.expires_in,
+        "interval": device.interval,
+    }
+    return RedirectResponse(url="/setup/gmail", status_code=303)
+
+
+@app.post("/setup/gmail/poll")
+def setup_gmail_poll(request: Request) -> Response:
+    if (r := auth.require_role(request, "senior", "admin")):
+        return r
+    cfg = runtime_config.load()
+    dev = request.session.get("setup_gmail_device")
+    if not dev:
+        return RedirectResponse(url="/setup/gmail", status_code=303)
+    fake = gmail_oauth.GmailDeviceCode(
+        device_code=dev["device_code"], user_code=dev["user_code"],
+        verification_url=dev["verification_url"], expires_in=dev["expires_in"], interval=dev["interval"],
+    )
+    try:
+        token = gmail_oauth.poll_for_token(
+            fake, client_id=cfg["gmail_client_id"], client_secret=cfg["gmail_client_secret"], max_wait=4,
+        )
+    except Exception as e:
+        return templates.TemplateResponse(
+            request, "setup_gmail.html",
+            _ctx(request, gmail_email=cfg.get("gmail_email"),
+                 has_client_id=True, device=dev, error=f"Google error: {e}"),
+            status_code=502,
+        )
+    if token is None:
+        return RedirectResponse(url="/setup/gmail", status_code=303)
+    email = gmail_oauth.get_email(token.access_token) or ""
+    runtime_config.update(
+        gmail_access_token=token.access_token,
+        gmail_refresh_token=token.refresh_token,
+        gmail_scope=token.scope,
+        gmail_email=email,
+    )
+    request.session.pop("setup_gmail_device", None)
+    audit.log(user_id=auth.current_user(request).id, action="gmail.connect", target=email or "(unknown)")
+    return RedirectResponse(url="/setup/gmail", status_code=303)
+
+
+@app.post("/ingest/gmail")
+def ingest_gmail(
+    request: Request,
+    q: str = Form(""),
+    max_threads: int = Form(25),
+) -> Response:
+    if (r := auth.require_role(request, "senior", "admin")):
+        return r
+    from edm.ingest.gmail import ingest_recent
+    summary = ingest_recent(q=q or None, max_threads=max_threads)
+    audit.log(
+        user_id=auth.current_user(request).id, action="gmail.ingest",
+        metadata={"fetched": summary.fetched, "written": summary.written, "errors": summary.errors[:3]},
+    )
+    return RedirectResponse(
+        url=f"/sources?message=Gmail+fetched+{summary.fetched}+threads,+wrote+{summary.written}",
+        status_code=303,
+    )
 
 
 # ---------- Auth ----------

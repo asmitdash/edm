@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Procedure findings{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold text-white mb-1">Procedure contradictions</h1>
+<p class="text-sm text-gray-400 mb-4">Cross-functional conflicts surfaced by the Brain: a new procedure or policy that contradicts what was already on the books.</p>
+
+<div class="flex gap-2 mb-4 text-sm">
+  <a href="/procedure-findings?status=open"         class="px-3 py-1 rounded {% if status == 'open' %}bg-white/10{% else %}border border-white/10{% endif %}">Open</a>
+  <a href="/procedure-findings?status=acknowledged" class="px-3 py-1 rounded {% if status == 'acknowledged' %}bg-white/10{% else %}border border-white/10{% endif %}">Acknowledged</a>
+  <a href="/procedure-findings?status=dismissed"    class="px-3 py-1 rounded {% if status == 'dismissed' %}bg-white/10{% else %}border border-white/10{% endif %}">Dismissed</a>
+</div>
+
+{% if findings %}
+<div class="card overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="text-left text-gray-400 border-b border-white/5">
+      <tr>
+        <th class="px-4 py-3">Severity</th>
+        <th class="px-4 py-3">New procedure</th>
+        <th class="px-4 py-3">Conflicts with</th>
+        <th class="px-4 py-3">Source</th>
+        <th class="px-4 py-3">Rationale</th>
+        <th class="px-4 py-3">When</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in findings %}
+      <tr class="border-b border-white/5 hover:bg-white/5 align-top">
+        <td class="px-4 py-3"><span class="badge badge-{{ f.severity }}">{{ f.severity }}</span></td>
+        <td class="px-4 py-3">{% if f.new_id %}<a class="ink-link" href="/procedures/{{ f.new_id }}">{{ f.new_title }}</a>{% else %}—{% endif %}</td>
+        <td class="px-4 py-3"><a class="ink-link" href="/procedures/{{ f.prior_id }}">{{ f.prior_title }}</a></td>
+        <td class="px-4 py-3 text-xs text-gray-400">{{ f.triggering_kind }} · {{ f.triggering_title }}</td>
+        <td class="px-4 py-3 text-xs text-gray-300 max-w-md">{{ f.rationale }}</td>
+        <td class="px-4 py-3 text-xs text-gray-500">{{ f.created_at.strftime('%Y-%m-%d') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card p-8 text-center text-gray-400">No procedure contradictions in this state.</div>
+{% endif %}
+{% endblock %}

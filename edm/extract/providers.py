@@ -409,28 +409,189 @@ class StubLLMProvider:
         }
 
     def extract(self, *, system: str, user: str, schema: dict[str, Any]) -> LLMResult:
-        payload = self._stub_extract_payload(user)
+        # Tool-name dispatch keeps the offline tests deterministic across the
+        # decision / procedure / SOP / skills / chatbot surfaces.
+        tool_name = schema.get("name", "")
+        if tool_name == "record_procedures":
+            payload = self._stub_procedures_payload(user)
+        elif tool_name == "extract_exceptions":
+            payload = self._stub_exceptions_payload(user)
+        elif tool_name == "ask_or_finish":
+            payload = self._stub_ask_payload(user)
+        elif tool_name == "write_sop":
+            payload = self._stub_sop_payload(user)
+        elif tool_name == "write_skills_file":
+            payload = self._stub_skills_payload(user)
+        else:
+            payload = self._stub_extract_payload(user)
         return LLMResult(
             payload=payload,
-            raw_response={"stub": True, "input_hash": self._hash(user)},
+            raw_response={"stub": True, "input_hash": self._hash(user), "tool": tool_name},
             model=self.model,
             input_tokens=len(user) // 4,
             output_tokens=len(json.dumps(payload)) // 4,
         )
 
-    def verify(self, *, system: str, user: str, schema: dict[str, Any]) -> LLMResult:
-        # If both 'Postgres' and 'MongoDB' titles appear, declare a contradiction.
+    # ---- Stub helpers for the new surfaces ----
+    def _stub_procedures_payload(self, user: str) -> dict[str, Any]:
         u = user.lower()
-        contradicts = ("postgres" in u and "mongodb" in u)
-        payload = {
-            "contradicts": contradicts,
-            "severity": "high" if contradicts else "low",
-            "rationale": (
-                "The new decision migrates a service away from Postgres to MongoDB, "
-                "directly conflicting with the prior decision to standardize on Postgres "
-                "as the primary OLTP store."
-            ) if contradicts else "Topics overlap but no actual conflict.",
+        if "refund" in u:
+            return {
+                "procedures": [{
+                    "local_id": "p1",
+                    "function_slug": "support",
+                    "title": "Refund handling",
+                    "summary": "Process customer refund requests within stated window.",
+                    "trigger_description": "Customer refund request received",
+                    "owner_role": "Support Lead",
+                    "steps": [
+                        {"step_index": 1, "instruction": "Verify customer + plan",
+                         "actor_role": "Support Agent", "tool_or_system": "Billing system"},
+                        {"step_index": 2, "instruction": "Issue refund via billing tool",
+                         "actor_role": "Support Agent", "tool_or_system": "Billing system"},
+                    ],
+                    "guardrails": [
+                        {"kind": "escalation",
+                         "statement": "Refunds over $500 require Support Lead approval",
+                         "severity": "high"}
+                    ],
+                }],
+                "notes": None,
+            }
+        if "incident" in u or "outage" in u:
+            return {
+                "procedures": [{
+                    "local_id": "p1",
+                    "function_slug": "engineering",
+                    "title": "Production incident response",
+                    "summary": "On-call engineer responds to production page.",
+                    "trigger_description": "Pager fires from monitoring",
+                    "owner_role": "Primary on-call",
+                    "steps": [
+                        {"step_index": 1, "instruction": "Acknowledge page within 5 minutes",
+                         "actor_role": "Primary on-call"},
+                        {"step_index": 2, "instruction": "Apply mitigation",
+                         "actor_role": "Primary on-call"},
+                    ],
+                    "guardrails": [
+                        {"kind": "always",
+                         "statement": "Data-loss incidents are SEV-1 regardless of customer count",
+                         "severity": "critical"}
+                    ],
+                }],
+                "notes": None,
+            }
+        return {"procedures": [], "notes": None}
+
+    def _stub_exceptions_payload(self, user: str) -> dict[str, Any]:
+        u = user.lower()
+        exceptions = []
+        if "friday" in u or "casual" in u:
+            exceptions.append({
+                "when": "on Fridays",
+                "then": "casuals allowed but no black clothes",
+                "severity": "low",
+            })
+        if "manager approval" in u or "$500" in u:
+            exceptions.append({
+                "when": "refund amount > $500",
+                "then": "manager approval required",
+                "severity": "high",
+            })
+        return {"exceptions": exceptions}
+
+    def _stub_ask_payload(self, user: str) -> dict[str, Any]:
+        u = user.lower()
+        if "is_done" in u and "true" in u:
+            return {"is_done": True, "next_question": "", "rationale": "stub: done"}
+        # naive heuristic — declare done if we already have at least one exception
+        if "WHEN" in user and "->" in user and user.count("WHEN") >= 2:
+            return {"is_done": True, "next_question": "", "rationale": "stub: enough captured"}
+        return {
+            "is_done": False,
+            "next_question": "What exceptions or edge cases should this SOP cover?",
+            "rationale": "stub: probe for exceptions",
         }
+
+    def _stub_sop_payload(self, user: str) -> dict[str, Any]:
+        title = "Generated SOP"
+        # crude title pull from form data
+        for line in user.splitlines():
+            line = line.strip()
+            if line.startswith('"title":') or line.startswith("title:"):
+                t = line.split(":", 1)[1].strip().strip('",')
+                if t and t.lower() != "null":
+                    title = t
+                    break
+        body = (
+            f"# {title}\n\n"
+            "## Purpose\nGenerated SOP body (stub).\n\n"
+            "## Scope\nApplies to the captured intake.\n\n"
+            "## Roles & Responsibilities\nOwner + escalation contact per intake form.\n\n"
+            "## Trigger\nAs described in intake.\n\n"
+            "## Procedure Steps\n1. Step one.\n2. Step two.\n3. Step three.\n\n"
+            "## Exceptions & Conditional Rules\nCaptured during chat intake.\n\n"
+            "## Escalation\nPer escalation contact in form data.\n\n"
+            "## Compliance Notes\nNone specified at intake.\n\n"
+            "## Revision History\nv1.0 — Generated."
+        )
+        return {"title": title, "body_markdown": body}
+
+    def _stub_skills_payload(self, user: str) -> dict[str, Any]:
+        title = "Generated SOP"
+        function_slug = "operations"
+        for line in user.splitlines():
+            ls = line.lower()
+            if "function slug" in ls:
+                tail = line.split(":", 1)[1].strip()
+                if tail:
+                    function_slug = tail
+                    break
+        return {
+            "schema_version": "skills.v1",
+            "sop_title": title,
+            "function_slug": function_slug,
+            "trigger": "stub-trigger",
+            "owner_role": "stub-owner",
+            "actions": [
+                {"action_id": "step_01", "name": "Step one",
+                 "instruction": "Do the first thing", "next_action_ids": ["step_02"]},
+                {"action_id": "step_02", "name": "Step two",
+                 "instruction": "Do the second thing", "next_action_ids": []},
+            ],
+            "guardrails": [
+                {"kind": "always", "statement": "Stub guardrail.", "severity": "low",
+                 "applies_to_action_ids": ["step_01"]}
+            ],
+        }
+
+    def verify(self, *, system: str, user: str, schema: dict[str, Any]) -> LLMResult:
+        u = user.lower()
+        # Decision-level: 'Postgres' vs 'MongoDB' -> contradiction.
+        if "postgres" in u and "mongodb" in u:
+            payload = {
+                "contradicts": True,
+                "severity": "high",
+                "rationale": (
+                    "The new decision migrates a service away from Postgres to MongoDB, "
+                    "directly conflicting with the prior decision to standardize on Postgres "
+                    "as the primary OLTP store."
+                ),
+            }
+        # Procedure-level: refunds-with-manager-approval changes signal a contradiction.
+        elif "refund" in u and ("no manager approval" in u or "without manager approval" in u
+                                or "no approval needed" in u):
+            payload = {
+                "contradicts": True,
+                "severity": "high",
+                "rationale": "New procedure removes manager-approval guardrail required by the prior procedure.",
+            }
+        else:
+            payload = {
+                "contradicts": False,
+                "severity": "low",
+                "rationale": "Topics overlap but no actual conflict.",
+            }
         return LLMResult(
             payload=payload,
             raw_response={"stub": True, "input_hash": self._hash(user)},

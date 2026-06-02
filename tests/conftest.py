@@ -41,14 +41,23 @@ def _bootstrap_schema():
     from edm.db import get_engine
 
     engine = get_engine()
-    migration = Path(__file__).resolve().parents[1] / "migrations" / "001_init.sql"
-    sql = migration.read_text(encoding="utf-8")
+    migrations_dir = Path(__file__).resolve().parents[1] / "migrations"
+    migrations = sorted(p for p in migrations_dir.glob("*.sql") if p.name[:3].isdigit())
 
     # Drop our application tables individually instead of `DROP SCHEMA public
     # CASCADE` — the latter would also nuke the `vector` and `pgcrypto`
     # extensions that the edm role isn't privileged to recreate.
     drop_sql = """
     DROP TABLE IF EXISTS
+        schema_migrations,
+        procedure_conflict_findings,
+        skills_files,
+        sop_session_messages, sop_sessions, sops,
+        procedure_guardrails, procedure_steps, procedures, functions,
+        source_attachments, github_members, audit_log,
+        llm_config, github_install,
+        invites, users,
+        ingest_jobs,
         conflict_findings, stale_assumption_findings, edges,
         decision_alternatives, decision_owners, decisions, assumptions,
         constraints, source_chunks, extractions, sources, owners
@@ -56,8 +65,9 @@ def _bootstrap_schema():
     """
     with engine.begin() as conn:
         conn.execute(text(drop_sql))
-    with engine.begin() as conn:
-        conn.execute(text(sql))
+    for m in migrations:
+        with engine.begin() as conn:
+            conn.execute(text(m.read_text(encoding="utf-8")))
     yield
 
 
@@ -72,6 +82,10 @@ def _reset_data():
             text(
                 """
                 TRUNCATE TABLE
+                  procedure_conflict_findings,
+                  skills_files,
+                  sop_session_messages, sop_sessions, sops,
+                  procedure_guardrails, procedure_steps, procedures,
                   conflict_findings,
                   stale_assumption_findings,
                   edges,

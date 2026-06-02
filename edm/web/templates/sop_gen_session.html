@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}SOP Session{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <a href="/sop-gen" class="text-xs text-gray-400 hover:text-white">← SOP Generator</a>
+  <h1 class="text-2xl font-semibold text-white mt-1">{{ sess.title or '(untitled session)' }}</h1>
+  <div class="text-xs text-gray-400 mt-1">Status: <span class="text-gray-200">{{ sess.status }}</span></div>
+</div>
+
+<div class="grid md:grid-cols-2 gap-5">
+  <!-- LEFT: form -->
+  <div class="card p-5">
+    <h2 class="font-semibold text-gray-200 mb-3 text-sm">1. Intake form</h2>
+    <form method="post" action="/sop-gen/{{ sess.id }}/form" class="space-y-3 text-sm">
+      <div class="grid grid-cols-2 gap-3">
+        <input name="org_name"  placeholder="Org name" value="{{ sess.form_data.get('org_name') or '' }}" class="bg-ink-800 border border-white/10 rounded px-3 py-2 text-gray-100"/>
+        <input name="industry"  placeholder="Industry" value="{{ sess.form_data.get('industry') or '' }}" class="bg-ink-800 border border-white/10 rounded px-3 py-2 text-gray-100"/>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <select name="function_slug" class="bg-ink-800 border border-white/10 rounded px-3 py-2 text-gray-100">
+          <option value="">— function —</option>
+          {% for f in functions %}<option value="{{ f.slug }}" {% if sess.function_slug == f.slug %}selected{% endif %}>{{ f.label }}</option>{% endfor %}
+        </select>
+        <input name="title" placeholder="SOP title" value="{{ sess.form_data.get('title') or sess.title or '' }}" class="bg-ink-800 border border-white/10 rounded px-3 py-2 text-gray-100"/>
+      </div>
+      <textarea name="purpose" placeholder="Purpose (why does this SOP exist?)" rows="2" class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2 text-gray-100">{{ sess.form_data.get('purpose') or '' }}</textarea>
+      <textarea name="scope"   placeholder="Scope (who / what does this cover?)" rows="2" class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2 text-gray-100">{{ sess.form_data.get('scope') or '' }}</textarea>
+      <div class="grid grid-cols-2 gap-3">
+        <input name="in_charge_role"      placeholder="In-charge role"      value="{{ sess.form_data.get('in_charge_role') or '' }}" class="bg-ink-800 border border-white/10 rounded px-3 py-2 text-gray-100"/>
+        <input name="escalation_contact"  placeholder="Escalation contact"  value="{{ sess.form_data.get('escalation_contact') or '' }}" class="bg-ink-800 border border-white/10 rounded px-3 py-2 text-gray-100"/>
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <input name="expected_frequency"  placeholder="Frequency"           value="{{ sess.form_data.get('expected_frequency') or '' }}" class="bg-ink-800 border border-white/10 rounded px-3 py-2 text-gray-100"/>
+        <input name="primary_systems"     placeholder="Tools (comma-sep)"   value="{{ sess.form_data.get('primary_systems', []) | join(', ') }}" class="bg-ink-800 border border-white/10 rounded px-3 py-2 text-gray-100"/>
+        <input name="compliance_tags"     placeholder="Compliance tags"     value="{{ sess.form_data.get('compliance_tags', []) | join(', ') }}" class="bg-ink-800 border border-white/10 rounded px-3 py-2 text-gray-100"/>
+      </div>
+      <button class="bg-white/10 hover:bg-white/20 rounded px-3 py-2 text-gray-100">Save form & start chat</button>
+    </form>
+
+    {% if sess.derived_exceptions %}
+    <h3 class="text-sm font-semibold text-gray-300 mt-6 mb-2">Captured exceptions ({{ sess.derived_exceptions | length }})</h3>
+    <ul class="space-y-2 text-xs">
+      {% for e in sess.derived_exceptions %}
+      <li class="border-l-2 border-amber-500 pl-3">
+        <span class="text-gray-400">WHEN</span> {{ e.when }} <span class="text-gray-400">→ THEN</span> {{ e.then }}
+        <span class="text-gray-500">({{ e.severity }})</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+
+  <!-- RIGHT: chat + generate -->
+  <div class="card p-5 flex flex-col" style="min-height: 480px;">
+    <h2 class="font-semibold text-gray-200 mb-3 text-sm">2. Iterative chat (~20–30 min)</h2>
+    <div class="flex-1 overflow-y-auto space-y-3 mb-3" style="max-height: 380px;">
+      {% if not messages %}
+      <div class="text-xs text-gray-500">Save the form to start. The assistant will probe for exceptions, escalation, and edge cases.</div>
+      {% endif %}
+      {% for m in messages %}
+      <div class="text-sm {% if m.role == 'user' %}bg-white/5{% else %}bg-blue-500/10{% endif %} rounded p-3">
+        <div class="text-xs text-gray-400 mb-1">{{ m.role }}</div>
+        <div class="text-gray-100 whitespace-pre-wrap">{{ m.content }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <form method="post" action="/sop-gen/{{ sess.id }}/chat" class="flex gap-2 mt-auto">
+      <input name="message" placeholder="Reply..." autocomplete="off"
+             class="flex-1 bg-ink-800 border border-white/10 rounded px-3 py-2 text-sm text-gray-100"/>
+      <button class="bg-white/10 hover:bg-white/20 rounded px-3 text-sm text-gray-100">Send</button>
+    </form>
+
+    <form method="post" action="/sop-gen/{{ sess.id }}/generate" class="mt-3">
+      <button {% if sess.status not in ('chatting', 'ready_to_generate') %}disabled{% endif %}
+              class="w-full bg-accent rounded px-3 py-2 text-sm text-white hover:bg-blue-500 disabled:opacity-40 disabled:hover:bg-accent">
+        3. Generate SOP + skills file
+      </button>
+      <p class="text-xs text-gray-500 mt-2">
+        Disclaimer: by generating, your SOP may be added to the corpus to improve future synthesis
+        unless you marked the session as no-train at start.
+      </p>
+    </form>
+
+    {% if sess.generated_sop_id %}
+    <div class="mt-3 text-sm">
+      <a class="ink-link" href="/sops/{{ sess.generated_sop_id }}">→ View generated SOP</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

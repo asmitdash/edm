@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}SOP Library{% endblock %}
+{% block content %}
+<div class="flex items-end justify-between mb-4 flex-wrap gap-3">
+  <div>
+    <h1 class="text-2xl font-semibold text-white">SOP Library</h1>
+    <p class="text-sm text-gray-400">Seed templates, customer uploads, and generated SOPs. Customer SOPs rank highest in retrieval.</p>
+  </div>
+  <div class="flex gap-2">
+    {% if role in ('senior', 'admin') %}
+    <a href="/sops/upload" class="text-sm border border-white/10 rounded px-3 py-1 text-gray-200 hover:bg-white/5">Upload SOP</a>
+    {% endif %}
+    <a href="/sop-gen" class="text-sm bg-accent rounded px-3 py-1 text-white hover:bg-blue-500">Generate new SOP</a>
+  </div>
+</div>
+
+<div class="flex gap-2 mb-4 text-sm">
+  <a href="/sops" class="px-3 py-1 rounded {% if not selected_kind %}bg-white/10{% else %}border border-white/10{% endif %}">All</a>
+  <a href="/sops?source_kind=seed"      class="px-3 py-1 rounded {% if selected_kind == 'seed' %}bg-white/10{% else %}border border-white/10{% endif %}">Seed</a>
+  <a href="/sops?source_kind=uploaded"  class="px-3 py-1 rounded {% if selected_kind == 'uploaded' %}bg-white/10{% else %}border border-white/10{% endif %}">Uploaded</a>
+  <a href="/sops?source_kind=generated" class="px-3 py-1 rounded {% if selected_kind == 'generated' %}bg-white/10{% else %}border border-white/10{% endif %}">Generated</a>
+</div>
+
+{% if sops %}
+<div class="card overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="text-left text-gray-400 border-b border-white/5">
+      <tr>
+        <th class="px-4 py-3">Title</th>
+        <th class="px-4 py-3">Function</th>
+        <th class="px-4 py-3">Org</th>
+        <th class="px-4 py-3">Source</th>
+        <th class="px-4 py-3">Confidentiality</th>
+        <th class="px-4 py-3">Updated</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in sops %}
+      <tr class="border-b border-white/5 hover:bg-white/5">
+        <td class="px-4 py-3"><a class="ink-link" href="/sops/{{ s.id }}">{{ s.title }}</a></td>
+        <td class="px-4 py-3 text-gray-300">{{ s.function_slug or '—' }}</td>
+        <td class="px-4 py-3 text-gray-300">{{ s.org_label or '—' }}</td>
+        <td class="px-4 py-3 text-gray-400">{{ s.source_kind }}</td>
+        <td class="px-4 py-3 text-gray-400">{{ s.confidentiality }}</td>
+        <td class="px-4 py-3 text-gray-500 text-xs">{{ s.updated_at.strftime('%Y-%m-%d') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card p-8 text-center text-gray-400">
+  No SOPs yet. Upload your existing SOPs (we'll rank yours above seed templates) or generate a new one.
+</div>
+{% endif %}
+{% endblock %}

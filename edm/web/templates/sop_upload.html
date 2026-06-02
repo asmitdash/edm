@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Upload SOP{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold text-white mb-1">Upload an existing SOP</h1>
+<p class="text-sm text-gray-400 mb-6">Markdown only for now. Yours will rank above seed templates during synthesis.</p>
+
+{% if error %}<div class="bg-rose-900/30 border border-rose-800 text-rose-200 rounded p-3 mb-4 text-sm">{{ error }}</div>{% endif %}
+{% if message %}<div class="bg-emerald-900/30 border border-emerald-800 text-emerald-200 rounded p-3 mb-4 text-sm">{{ message }}</div>{% endif %}
+
+<form method="post" action="/sops/upload" enctype="multipart/form-data" class="card p-6 space-y-4 max-w-2xl">
+  <div>
+    <label class="block text-xs text-gray-400 mb-1">Title</label>
+    <input name="title" required class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2 text-sm text-gray-100" />
+  </div>
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="block text-xs text-gray-400 mb-1">Function</label>
+      <select name="function_slug" required class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2 text-sm text-gray-100">
+        {% for f in functions %}<option value="{{ f.slug }}">{{ f.label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs text-gray-400 mb-1">Confidentiality</label>
+      <select name="confidentiality" class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2 text-sm text-gray-100">
+        <option value="internal">Internal</option>
+        <option value="restricted">Restricted</option>
+        <option value="public">Public</option>
+      </select>
+    </div>
+  </div>
+  <div class="grid grid-cols-2 gap-4">
+    <div>
+      <label class="block text-xs text-gray-400 mb-1">Org label</label>
+      <input name="org_label" class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2 text-sm text-gray-100" />
+    </div>
+    <div>
+      <label class="block text-xs text-gray-400 mb-1">Industry</label>
+      <input name="industry" class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2 text-sm text-gray-100" />
+    </div>
+  </div>
+  <div>
+    <label class="block text-xs text-gray-400 mb-1">Markdown file</label>
+    <input type="file" name="file" accept=".md,text/markdown" required class="text-sm text-gray-300" />
+  </div>
+  <button class="bg-accent rounded px-4 py-2 text-white text-sm hover:bg-blue-500">Upload</button>
+</form>
+{% endblock %}

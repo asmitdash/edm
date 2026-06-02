@@ -5,14 +5,37 @@ from __future__ import annotations
 
 from typing import Any
 
-from edm import audit, install_config, users
+from edm import audit, install_config, runtime_config, users
 from edm.extract.providers import build_provider
 
 
+def is_database_configured() -> bool:
+    """Truthy DATABASE_URL via runtime config or env, AND we can reach the DB."""
+    if not runtime_config.is_database_configured():
+        return False
+    try:
+        from sqlalchemy import text
+        from edm.db import get_engine
+        with get_engine().connect() as c:
+            c.execute(text("SELECT 1"))
+        return True
+    except Exception:
+        return False
+
+
 def is_setup_complete() -> bool:
-    """The install is 'set up' once at least one admin exists and an LLM
-    is configured. GitHub is optional."""
-    return users.has_active_admin() and bool(install_config.get_llm_config().provider)
+    """The install is 'set up' once: DB + admin + LLM are all configured.
+    GitHub / Gmail remain optional."""
+    if not is_database_configured():
+        return False
+    try:
+        if not users.has_active_admin():
+            return False
+        if not install_config.get_llm_config().provider:
+            return False
+    except Exception:
+        return False
+    return True
 
 
 def ensure_no_admin() -> None:

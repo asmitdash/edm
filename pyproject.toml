@@ -52,6 +52,8 @@ packages = ["edm"]
 "migrations/001_init.sql" = "edm/_migrations/001_init.sql"
 "migrations/002_users_roles_install.sql" = "edm/_migrations/002_users_roles_install.sql"
 "migrations/003_ingest_jobs.sql" = "edm/_migrations/003_ingest_jobs.sql"
+"migrations/004_company_brain_sop.sql" = "edm/_migrations/004_company_brain_sop.sql"
+"migrations/005_brain_findings.sql" = "edm/_migrations/005_brain_findings.sql"
 
 [tool.ruff]
 line-length = 100

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ sop.title }}{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <a href="/sops" class="text-xs text-gray-400 hover:text-white">← SOP Library</a>
+  <h1 class="text-2xl font-semibold text-white mt-1">{{ sop.title }}</h1>
+  <div class="text-xs text-gray-400 mt-1">
+    {{ sop.function_slug or '—' }} ·
+    {{ sop.source_kind }} ·
+    {% if sop.org_label %}{{ sop.org_label }} · {% endif %}
+    {% if sop.industry %}{{ sop.industry }} · {% endif %}
+    {{ sop.confidentiality }}
+  </div>
+</div>
+
+<div class="grid md:grid-cols-3 gap-5">
+  <div class="md:col-span-2 card p-6 prose prose-invert max-w-none">
+    <pre class="whitespace-pre-wrap text-sm text-gray-100 font-sans leading-relaxed">{{ sop.body_markdown }}</pre>
+  </div>
+
+  <div class="card p-5 text-sm">
+    <h2 class="font-semibold text-gray-300 mb-3">Skills file</h2>
+    {% if skills_file %}
+    <p class="text-xs text-gray-400 mb-2">
+      Executable artefact agents read.<br/>
+      Schema: {{ skills_file.schema_version }} · v{{ skills_file.version }}<br/>
+      Actions: {{ skills_file.body.actions | length }}<br/>
+      Guardrails: {{ skills_file.body.guardrails | length }}
+    </p>
+    <a class="ink-link text-sm" href="/api/sops/{{ sop.id }}/skills.json">Download skills.json</a>
+    {% else %}
+    <p class="text-xs text-gray-500">No skills file. Generate via the SOP Gen flow.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

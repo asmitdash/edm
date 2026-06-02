@@ -22,13 +22,17 @@ from sqlalchemy import text
 from edm.db import session_scope
 from edm.logging import configure_logging
 
-app = typer.Typer(help="Engineering Decision Memory")
+app = typer.Typer(help="EDM — Company Brain, decision memory, and SOP generator.")
 db_app = typer.Typer(help="Database operations")
 ingest_app = typer.Typer(help="Source ingestors")
 graph_app = typer.Typer(help="Graph operations")
+brain_app = typer.Typer(help="Company Brain operations")
+sop_app = typer.Typer(help="SOP corpus + generator")
 app.add_typer(db_app, name="db")
 app.add_typer(ingest_app, name="ingest")
 app.add_typer(graph_app, name="graph")
+app.add_typer(brain_app, name="brain")
+app.add_typer(sop_app, name="sop")
 
 console = Console()
 
@@ -39,20 +43,31 @@ def _root() -> None:
 
 
 @db_app.command("init")
-def db_init(migration: Path = typer.Option(Path("migrations/001_init.sql"))) -> None:
-    """Apply the initial schema migration."""
+def db_init(
+    migrations_dir: Path = typer.Option(Path("migrations"), help="Directory containing NNN_*.sql files."),
+    only: Path | None = typer.Option(None, help="Apply only this single migration file."),
+) -> None:
+    """Apply migrations. Without --only, runs every NNN_*.sql in order."""
     from edm.db import get_engine
 
-    sql = migration.read_text(encoding="utf-8")
+    if only is not None:
+        targets = [only]
+    else:
+        targets = sorted(p for p in migrations_dir.glob("*.sql") if p.name[:3].isdigit())
+        if not targets:
+            console.print(f"[yellow]no migrations found in {migrations_dir}[/yellow]")
+            return
+
     engine = get_engine()
     raw = engine.raw_connection()
     try:
         cur = raw.cursor()
-        cur.execute(sql)
+        for m in targets:
+            cur.execute(m.read_text(encoding="utf-8"))
+            console.print(f"[green]applied[/green] {m.name}")
         raw.commit()
     finally:
         raw.close()
-    console.print(f"[green]applied[/green] {migration}")
 
 
 @ingest_app.command("github")
@@ -215,6 +230,75 @@ def setup_cli() -> None:
         console.print("Skipped GitHub. You can connect later from /settings/github.")
 
     console.print("\n[green bold]Setup complete.[/green bold] Run [cyan]edm serve[/cyan] to start the UI.")
+
+
+@sop_app.command("load-seed")
+def sop_load_seed(seed_dir: Path = typer.Option(None, help="Override seed dir.")) -> None:
+    """Load the bundled seed SOP library into the corpus."""
+    from edm.sop import corpus
+
+    target = seed_dir or (Path(__file__).resolve().parent / "sop" / "seed_library")
+    n = corpus.load_seed_library_from_disk(target)
+    console.print(f"[green]loaded[/green] {n} seed SOPs from {target}")
+
+
+@sop_app.command("upload")
+def sop_upload(
+    file: Path = typer.Argument(...),
+    title: str = typer.Option(...),
+    function: str = typer.Option("operations"),
+    org: str = typer.Option(""),
+    industry: str = typer.Option(""),
+) -> None:
+    """Upload a single SOP markdown file (CLI helper)."""
+    from edm.sop import corpus
+
+    body = file.read_text(encoding="utf-8")
+    sop_id = corpus.upload_sop(
+        title=title, body_markdown=body,
+        function_slug=function, org_label=org or None, industry=industry or None,
+    )
+    console.print(f"[green]uploaded[/green] SOP {sop_id}")
+
+
+@brain_app.command("ingest-text")
+def brain_ingest_text(
+    file: Path = typer.Argument(...),
+    kind: str = typer.Option("policy_doc", help="email_thread | support_ticket | crm_note | meeting_transcript | wiki_page | policy_doc"),
+    title: str = typer.Option(""),
+) -> None:
+    """Ingest a plaintext file into the Brain pipeline (procedures extraction)."""
+    import hashlib
+    import json as _json
+    from datetime import datetime, timezone
+    from edm.db import session_scope as _ss
+    from edm.pipeline import process_source
+
+    body = file.read_text(encoding="utf-8")
+    h = hashlib.sha256(body.encode("utf-8")).hexdigest()
+    with _ss() as s:
+        sid = s.execute(
+            text(
+                """
+                INSERT INTO sources (kind, external_id, title, body, occurred_at, content_hash, metadata)
+                VALUES (:k, :e, :t, :b, :ts, :h, CAST(:m AS JSONB))
+                ON CONFLICT (kind, external_id) DO UPDATE
+                  SET body = EXCLUDED.body, content_hash = EXCLUDED.content_hash
+                RETURNING id
+                """
+            ),
+            {
+                "k": kind,
+                "e": f"cli/{file.name}/{h[:12]}",
+                "t": title or file.stem,
+                "b": body,
+                "ts": datetime.now(timezone.utc),
+                "h": h,
+                "m": _json.dumps({"source": "cli"}),
+            },
+        ).scalar_one()
+    summary = process_source(sid)
+    console.print(summary)
 
 
 @app.command("serve")

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Connect Gmail{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <a href="/setup/connect" class="text-xs text-gray-400 hover:text-white">← Connectors</a>
+  <h1 class="text-2xl font-semibold tracking-tight mt-1">Connect Gmail</h1>
+  <p class="text-sm text-gray-400 mt-1">Read-only access to threads. The Brain extracts procedures from each thread.</p>
+
+  {% if gmail_email %}
+    <div class="card p-5 mt-6 flex items-center justify-between">
+      <div>
+        <div class="text-sm text-gray-200">Connected as <span class="font-mono">{{ gmail_email }}</span></div>
+        <div class="text-xs text-gray-500 mt-0.5">You can run an ingestion below or any time from <a class="ink-link" href="/sources">Sources</a>.</div>
+      </div>
+      <span class="text-xs text-emerald-300">active</span>
+    </div>
+
+    <form method="post" action="/ingest/gmail" class="card p-5 mt-4 space-y-3">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-gray-400 mb-1">Search query (optional)</label>
+        <input name="q" placeholder="label:policies OR from:legal@" class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2 text-sm font-mono"/>
+        <p class="text-xs text-gray-500 mt-1">Same syntax as Gmail's search bar. Leave blank to pull the most recent threads.</p>
+      </div>
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-gray-400 mb-1">Max threads</label>
+        <input name="max_threads" type="number" value="25" min="1" max="200" class="w-32 bg-ink-800 border border-white/10 rounded px-3 py-2 text-sm"/>
+      </div>
+      <button class="bg-accent hover:bg-blue-500 text-white text-sm rounded px-3 py-2">Pull threads & process</button>
+    </form>
+
+  {% else %}
+
+    {% if error %}<div class="mt-4 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded px-3 py-2">{{ error }}</div>{% endif %}
+
+    {% if not has_client_id %}
+    <div class="card p-6 mt-6">
+      <h2 class="font-semibold text-gray-200">Step 1 — Google OAuth client</h2>
+      <p class="text-xs text-gray-400 mt-1">
+        Self-hosted apps need their own Google OAuth client. Create one at
+        <a class="ink-link" href="https://console.cloud.google.com/apis/credentials" target="_blank">console.cloud.google.com → Credentials</a>:
+        choose <em>OAuth client ID</em>, application type <em>TVs and Limited Input devices</em>,
+        and enable the <em>Gmail API</em> for the project. You'll get a client ID + secret. Paste them here:
+      </p>
+      <form method="post" action="/setup/gmail/save-client" class="mt-4 space-y-3">
+        <input name="client_id" required placeholder="OAuth client ID" class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2 text-sm font-mono"/>
+        <input name="client_secret" required type="password" placeholder="OAuth client secret" class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2 text-sm"/>
+        <button class="bg-accent hover:bg-blue-500 text-white text-sm rounded px-3 py-2">Save credentials</button>
+      </form>
+    </div>
+    {% else %}
+    <div class="card p-6 mt-6">
+      <h2 class="font-semibold text-gray-200">Step 2 — Authorize</h2>
+      {% if device %}
+        <p class="text-sm text-gray-300 mt-2">Open <a class="ink-link" href="{{ device.verification_url }}" target="_blank">{{ device.verification_url }}</a> and enter:</p>
+        <div class="font-mono text-2xl tracking-widest text-white bg-ink-800 rounded px-4 py-3 inline-block mt-2">{{ device.user_code }}</div>
+        <p class="text-xs text-gray-500 mt-2">Code expires in {{ device.expires_in }}s. Click "Check" once you've authorized.</p>
+        <form method="post" action="/setup/gmail/poll" class="mt-3">
+          <button class="bg-accent hover:bg-blue-500 text-white text-sm rounded px-3 py-2">Check authorization</button>
+        </form>
+      {% else %}
+        <form method="post" action="/setup/gmail/start" class="mt-3">
+          <button class="bg-accent hover:bg-blue-500 text-white text-sm rounded px-3 py-2">Start Gmail authorization</button>
+        </form>
+      {% endif %}
+    </div>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

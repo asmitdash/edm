@@ -4,11 +4,16 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from edm import runtime_config
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    database_url: str = Field(alias="DATABASE_URL")
+    # Default to empty string — the auto-setup wizard fills this in via the
+    # runtime config file (~/.edm/runtime.json). Code that needs a working DB
+    # connection should call `require_database()` rather than reading directly.
+    database_url: str = Field(default="", alias="DATABASE_URL")
 
     # LLM providers — all optional; the active one is chosen via EDM_LLM_PROVIDER.
     anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
@@ -40,4 +45,25 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+    # Push runtime-config values into the environment first so pydantic-settings
+    # picks them up. This is what makes the auto-setup wizard work without the
+    # user touching .env.
+    runtime_config.load_into_env()
     return Settings()  # type: ignore[call-arg]
+
+
+def reset_settings_cache() -> None:
+    """After the wizard saves the database URL we need to rebuild Settings so
+    subsequent get_settings() calls see the new value."""
+    get_settings.cache_clear()
+
+
+def require_database() -> str:
+    """Resolve the DB URL or raise a friendly error directing the user to /setup/database."""
+    s = get_settings()
+    if not s.database_url:
+        raise RuntimeError(
+            "DATABASE_URL is not configured. Visit /setup/database in the UI "
+            "or run `edm setup` from the CLI."
+        )
+    return s.database_url

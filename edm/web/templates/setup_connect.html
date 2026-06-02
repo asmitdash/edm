@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Setup · Connectors{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <ol class="flex gap-2 mb-8 text-xs text-gray-400 flex-wrap">
+    <li>1. Database</li><li>›</li>
+    <li>2. Admin</li><li>›</li>
+    <li>3. LLM + embeddings</li><li>›</li>
+    <li class="text-white">4. Connectors (optional)</li>
+  </ol>
+  <div class="card p-8">
+    <h1 class="text-2xl font-semibold tracking-tight">Hook in your data sources</h1>
+    <p class="text-sm text-gray-400 mt-1">Connect any of these now or later. None are required to start using EDM.</p>
+
+    <div class="mt-6 grid gap-4">
+      <div class="card p-5 flex items-start justify-between">
+        <div>
+          <div class="font-semibold">GitHub <span class="text-xs text-gray-500 ml-1">(engineering decisions)</span></div>
+          <div class="text-xs text-gray-400 mt-1">{% if github.org_login %}Connected as {{ github.github_login }} → {{ github.org_login }}{% if github.repo_full %} / {{ github.repo_full }}{% endif %}{% else %}PR ingestion + contradiction detection. Auto-backfills the most recent 50 PRs after connect.{% endif %}</div>
+        </div>
+        {% if github.org_login %}
+          <span class="text-xs text-emerald-300">connected</span>
+        {% else %}
+          <a href="/setup/github" class="text-sm border border-white/10 rounded px-3 py-1 hover:bg-white/5">Connect</a>
+        {% endif %}
+      </div>
+
+      <div class="card p-5 flex items-start justify-between">
+        <div>
+          <div class="font-semibold">Gmail <span class="text-xs text-gray-500 ml-1">(company brain)</span></div>
+          <div class="text-xs text-gray-400 mt-1">{% if gmail_connected %}Connected. Pull threads from your /sources page.{% else %}Pull email threads → procedure extraction. Read-only scope.{% endif %}</div>
+        </div>
+        {% if gmail_connected %}
+          <span class="text-xs text-emerald-300">connected</span>
+        {% else %}
+          <a href="/setup/gmail" class="text-sm border border-white/10 rounded px-3 py-1 hover:bg-white/5">Connect</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <a href="/setup/skip" class="mt-8 block text-center text-sm text-gray-400 hover:text-white">Skip and finish setup →</a>
+  </div>
+</div>
+{% endblock %}

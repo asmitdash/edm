@@ -2,10 +2,11 @@
 {% block title %}Setup · LLM{% endblock %}
 {% block content %}
 <div class="max-w-2xl mx-auto">
-  <ol class="flex gap-2 mb-8 text-xs text-gray-400">
-    <li>1. Admin account</li><li>›</li>
-    <li class="text-white">2. LLM provider</li><li>›</li>
-    <li>3. GitHub (optional)</li>
+  <ol class="flex gap-2 mb-8 text-xs text-gray-400 flex-wrap">
+    <li>1. Database</li><li>›</li>
+    <li>2. Admin</li><li>›</li>
+    <li class="text-white">3. LLM + embeddings</li><li>›</li>
+    <li>4. Connectors (optional)</li>
   </ol>
   <div class="card p-8">
     <h1 class="text-2xl font-semibold tracking-tight">Pick an LLM provider</h1>
@@ -32,8 +33,13 @@
         <label class="block text-xs uppercase tracking-wide text-gray-400 mb-1">API key</label>
         <input name="api_key" type="password" required class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2 outline-none focus:border-accent" />
       </div>
+      <div class="border-t border-white/5 pt-4">
+        <label class="block text-xs uppercase tracking-wide text-gray-400 mb-1">Voyage embeddings key (optional)</label>
+        <input name="voyage_api_key" type="password" class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2 outline-none focus:border-accent" placeholder="leave blank to use offline stub embeddings"/>
+        <p class="text-xs text-gray-500 mt-1">Voyage powers semantic retrieval (procedure / SOP search, contradiction detection). Get a key at <a href="https://www.voyageai.com" target="_blank" class="ink-link">voyageai.com</a>. Stub embeddings work for local testing only.</p>
+      </div>
       <button class="w-full bg-accent hover:bg-blue-500 text-white font-medium rounded px-3 py-2">Test key & continue</button>
-      <p class="text-xs text-gray-500 mt-1">We make one tiny test call to verify the key works before saving.</p>
+      <p class="text-xs text-gray-500 mt-1">We make one tiny test call to verify the LLM key works before saving.</p>
     </form>
   </div>
 </div>

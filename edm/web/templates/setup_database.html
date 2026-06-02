@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Setup · Database{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <ol class="flex gap-2 mb-8 text-xs text-gray-400 flex-wrap">
+    <li class="text-white">1. Database</li><li>›</li>
+    <li>2. Admin</li><li>›</li>
+    <li>3. LLM + embeddings</li><li>›</li>
+    <li>4. Connectors (optional)</li>
+  </ol>
+  <div class="card p-8">
+    <h1 class="text-2xl font-semibold tracking-tight">Connect a database</h1>
+    <p class="text-sm text-gray-400 mt-1">
+      EDM stores everything in Postgres with the <code class="text-gray-300">pgvector</code> and <code class="text-gray-300">pgcrypto</code> extensions.
+      Once you submit, we test the connection, run all migrations, and seed the SOP library — no terminal commands.
+    </p>
+
+    {% if error %}<div class="mt-4 text-sm text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded px-3 py-2 whitespace-pre-line">{{ error }}</div>{% endif %}
+    {% if message %}<div class="mt-4 text-sm text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded px-3 py-2">{{ message }}</div>{% endif %}
+
+    <form method="post" action="/setup/database" class="mt-6 space-y-4">
+      <div>
+        <label class="block text-xs uppercase tracking-wide text-gray-400 mb-1">Database URL</label>
+        <input name="database_url" required value="{{ suggested }}" class="w-full bg-ink-800 border border-white/10 rounded px-3 py-2 outline-none focus:border-accent font-mono text-sm" />
+        <p class="text-xs text-gray-500 mt-1">
+          Format: <code class="bg-ink-800 px-1 rounded">postgresql+psycopg://USER:PASS@HOST:PORT/DBNAME</code>.
+          The packaged Docker compose already provisions one — paste <code class="bg-ink-800 px-1 rounded">postgresql+psycopg://edm:edm@postgres:5432/edm</code> if you started it that way.
+        </p>
+      </div>
+
+      <details class="text-xs text-gray-400 bg-ink-800 rounded p-3">
+        <summary class="cursor-pointer text-gray-300">Don't have Postgres running? (1-line Docker)</summary>
+        <pre class="mt-2 whitespace-pre-wrap text-gray-300">docker run --name edm-pg -e POSTGRES_USER=edm -e POSTGRES_PASSWORD=edm -e POSTGRES_DB=edm -p 5432:5432 -d ankane/pgvector
+docker exec edm-pg psql -U edm -d edm -c "CREATE EXTENSION IF NOT EXISTS pgcrypto; CREATE EXTENSION IF NOT EXISTS vector;"</pre>
+        <p class="mt-2">Then come back and submit. The default URL above will work.</p>
+      </details>
+
+      <button class="w-full bg-accent hover:bg-blue-500 text-white font-medium rounded px-3 py-2">Connect & migrate</button>
+      <p class="text-xs text-gray-500 mt-1">We validate the connection, confirm pgvector + pgcrypto, then apply all migrations and seed 5 SOP templates. Idempotent — safe to retry.</p>
+    </form>
+  </div>
+</div>
+{% endblock %}

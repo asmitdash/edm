@@ -1,9 +1,17 @@
-# EDM — your engineering decision Brain
+# EDM — Company Brain, Decision Memory, and SOP Generator
 
 [![Docker Hub](https://img.shields.io/badge/docker-asmittdashh%2Fedm-blue?logo=docker)](https://hub.docker.com/r/asmittdashh/edm)
 ![status](https://img.shields.io/badge/status-alpha-orange)
 
-**EDM (Engineering Decision Memory)** is a self-hosted "engineering Brain" for your team. It ingests your GitHub PRs, design docs, Mermaid diagrams, and architecture screenshots, uses an LLM to extract every **decision** plus the **assumptions and constraints behind it**, and stores them as a causal graph. When a new PR lands, EDM semantically retrieves prior decisions and asks the LLM whether any are contradicted — surfacing **"this PR conflicts with a decision made 4 months ago"** with click-through provenance to the source artifact.
+**EDM** started as Engineering Decision Memory and has grown into a one-stop **Company Brain**: every company has critical know-how scattered across PRs, emails, Slack, support tickets, wikis, and people's heads. EDM pulls that knowledge out, structures it, keeps it current, and exposes two artefacts AI agents and humans both consume — **a queryable causal graph** and **executable skills files**.
+
+It now ships three layers in one self-hosted app:
+
+1. **Engineering Decision Memory (v1)** — the original. Ingests PRs / design docs / diagrams, extracts decisions + assumptions + constraints, surfaces contradictions when new PRs reverse old decisions. Untouched by the v2 expansion.
+2. **Company Brain (v2)** — same primitive, every other function. Ingests emails, support tickets, CRM notes, meeting transcripts, wiki pages, and policy docs and turns them into **procedures** (ordered atomic steps + guardrails) tied to a function (sales / support / ops / finance / legal / HR / IT / security / etc.).
+3. **SOP Generator (v2)** — form + chatbot intake (~20–30 min) → retrieval over your SOP corpus → synthesis of both a **human-readable SOP** and a paired **executable skills file** (JSON action graph agents can run). Customer-uploaded SOPs rank above seed templates so the generated output looks like *your* documents, not generic boilerplate.
+
+LLM provider is pluggable via the existing abstraction — **Gemini is the default**, **Claude Sonnet** is the swap. OpenAI and OpenRouter still work for v1 paths.
 
 ---
 
@@ -21,43 +29,58 @@ Search products (Glean, Notion AI, Slack AI) tell you *what* a doc says. EDM tel
 
 ## What ships
 
+**Engineering Decision Memory (v1, unchanged):**
 - A FastAPI app with a clean Tailwind UI and **role-based session login** (admin / senior / junior)
 - A typed Postgres + pgvector schema with full **provenance** (every node and edge points to an `extractions` row → `sources` row)
-- LLM provider abstraction supporting **OpenAI, Anthropic Claude, Google Gemini, and OpenRouter**
+- LLM provider abstraction supporting **Gemini, Anthropic Claude, OpenAI, and OpenRouter**
 - Voyage embeddings for semantic retrieval
 - A two-stage **contradiction detector** (embedding retrieve → LLM verify)
 - **GitHub OAuth Device Flow** for connecting your org without paste-a-token UX
 - Auto **PR backfill** after connect — pulls 50 most-recent PRs and processes them in the background
 - A **PR-review bot** webhook that comments on PRs when a contradiction is detected
-- An interactive **Cytoscape.js graph** with `cose-bilkent` physics, click-to-detail side panel, edge legend, filter chips
+- An interactive **Cytoscape.js graph**, click-to-detail side panel, edge legend
 - Upload pipeline for **Markdown / Mermaid / SVG / PNG / JPG** — images go through a vision LLM
-- A **PDF report** with org-member contribution stats, top contributors chart, decisions, and contradictions
-- A `Typer` CLI: `edm setup`, `edm db init`, `edm process`, `edm findings`, `edm graph export`, `edm serve`
+- A **PDF report** with org-member contribution stats, top contributors, decisions, and contradictions
+
+**Company Brain (v2):**
+- Procedure extraction across `email_thread`, `support_ticket`, `crm_note`, `meeting_transcript`, `wiki_page`, `policy_doc` source kinds
+- 12 built-in **functions** (engineering, product, sales, support, success, marketing, finance, hr, legal, it, operations, security)
+- Each procedure stores ordered atomic **steps** (actor + tool + expected outcome) and typed **guardrails** (always / never / condition / escalation / exception / compliance)
+- **Procedure contradiction detector** — same two-stage pattern as the engineering layer. When a new policy doc lands that reverses an existing procedure, it shows up at `/procedure-findings` with severity + rationale + provenance.
+- **Gmail connector** — read-only OAuth (device flow), pulls threads, runs the brain pipeline on each. UI at `/setup/gmail` (no CLI).
+- Brain search UI at `/brain` — semantic retrieval across procedures *and* SOPs
+
+**SOP Generator (v2):**
+- Per-session intake combining a **structured form** (org, function, owners, escalation, etc.) and a **20–30 min chatbot** that pulls exception threads (e.g. "uniforms compulsory but Fridays casuals OK, no black")
+- Retrieval over a layered corpus: 5 **bundled seed SOPs** + your **uploaded SOPs** + previously **generated SOPs**. Customer uploads outrank seeds.
+- Dual-output synthesis: **human-readable SOP markdown** with full SOP sections AND a paired **executable skills file** (JSON action graph + guardrails) at `/api/sops/{id}/skills.json`
+- Per-session "consent to train" toggle controls whether the generated SOP gets retained in the corpus for future synthesis
+
+**Tooling:**
+- A `Typer` CLI: `edm setup`, `edm db init`, `edm process`, `edm findings`, `edm graph export`, `edm serve`, `edm sop load-seed`, `edm sop upload`, `edm brain ingest-text`
 
 ---
 
-## Quickstart — pull from Docker Hub
+## Quickstart — auto-setup (zero terminal commands after launch)
 
-The fastest path. No source checkout, no build.
+EDM v0.0.2+ ships a fully web-driven setup wizard. You do **not** edit `.env`, **do not** run `edm db init`, **do not** load seed SOPs by hand — the browser does it for you.
 
 ```bash
-# 1. grab the compose file + an env template
-curl -fsSL https://raw.githubusercontent.com/asmitdash/edm/main/docker-compose.bundle.yml -o docker-compose.bundle.yml
-curl -fsSL https://raw.githubusercontent.com/asmitdash/edm/main/.env.example -o .env
-curl -fsSL https://raw.githubusercontent.com/asmitdash/edm/main/scripts/postgres-init.sh -o postgres-init.sh
-mkdir -p scripts && mv postgres-init.sh scripts/postgres-init.sh && chmod +x scripts/postgres-init.sh
-
-# 2. fill in .env with at minimum:
-#    EDM_SESSION_SECRET (random 64-char string — used to sign sessions and encrypt stored secrets)
-#    EDM_ADMIN_PASSWORD (your own choice; the wizard creates the actual admin)
-# (LLM and GitHub keys go in via the setup wizard, not the env file)
-
-# 3. start
+# 1. start Postgres + EDM (one command)
 docker compose -f docker-compose.bundle.yml up -d
 
-# 4. open
-xdg-open http://127.0.0.1:8088   # or just paste in a browser
+# 2. open
+xdg-open http://127.0.0.1:8088
 ```
+
+The wizard walks you through, in this exact order:
+
+1. **Database** — paste the connection string. EDM tests it, confirms `pgvector` + `pgcrypto` are present, runs every migration in order, and seeds 5 SOP templates. Idempotent — safe to retry on failure.
+2. **Admin account** — username + password. Creates the install-wide root user.
+3. **LLM + embeddings** — pick Gemini (default), Claude Sonnet, OpenAI, or OpenRouter. Paste the LLM key. Optionally paste a Voyage key in the same form for production-grade semantic retrieval; leave blank to use the offline stub.
+4. **Connectors (optional)** — connect GitHub (engineering source) and/or Gmail (company brain source). Either or both can be skipped and added later from `/setup/connect`.
+
+That's the whole onboarding. No CLI, no env-file editing.
 
 **On Docker Hub the image is `asmittdashh/edm`.** What you'd type if you wanted to run the app container by hand (you usually wouldn't — postgres needs to come too):
 
@@ -261,7 +284,44 @@ DATABASE_URL=postgresql+psycopg://edm:edm@127.0.0.1:5432/edm_test \
 
 ---
 
-## What's NOT in v0.0.1
+## Company Brain + SOP routes
+
+The auto-setup wizard runs migrations 001 → 005. The new surfaces are:
+
+| Route | Purpose |
+|---|---|
+| `/procedures` | Browse extracted procedures across all functions |
+| `/procedures/{id}` | Drill into one procedure: steps + guardrails |
+| `/procedure-findings` | Cross-functional contradictions surfaced by the Brain |
+| `/sops` | SOP library: seed + uploaded + generated, filterable |
+| `/sops/{id}` | View a single SOP with its paired skills file |
+| `/sops/upload` | Upload your existing SOPs (markdown) — seniors / admin only |
+| `/sop-gen` | Start a new SOP generation session |
+| `/sop-gen/{id}` | The session: form + chat + generate button |
+| `/brain` | Semantic search across procedures and SOPs |
+| `/setup/database` | Auto-migrate + auto-seed (first run, runnable any time) |
+| `/setup/gmail` | Connect Gmail (device flow) and pull threads |
+| `/api/sops/{id}/skills.json` | Download the executable skills file |
+
+Bootstrap is automatic — the seed library is loaded the first time you complete `/setup/database`. The CLI commands below remain for power users:
+
+```bash
+edm sop load-seed                                                # idempotent re-seed
+edm brain ingest-text path/to/policy.md --kind policy_doc        # CLI ingest
+```
+
+To pull email threads, connect Gmail at `/setup/gmail` then either click "Pull threads" or POST to `/ingest/gmail`. No CLI required.
+
+## Switching between Gemini and Claude Sonnet
+
+The default is Gemini. Two ways to switch:
+
+- **UI:** `/settings/llm` → pick `Anthropic Claude` → enter the key. Re-validates and persists.
+- **CLI / env:** set `EDM_LLM_PROVIDER=anthropic` and provide `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL=claude-sonnet-4-6`.
+
+Same abstraction drives every LLM call — engineering extraction, procedure extraction, chatbot exception extraction, "ask or finish" decision, SOP synthesis, skills-file synthesis. No code change needed to swap.
+
+## What's NOT in v0.0.x
 
 Per the explicit scope decisions during design:
 
@@ -270,6 +330,7 @@ Per the explicit scope decisions during design:
 - Linear / Jira ingestion
 - Hosted SaaS — this is self-host only
 - Per-team data segmentation (everyone in the install sees everything)
+- Live execution of skills files (this build emits them; the agent runtime that consumes them is separate)
 
 ---
 

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Brain Search{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold text-white mb-1">Company Brain</h1>
+<p class="text-sm text-gray-400 mb-6">Semantic search across procedures and SOPs.</p>
+
+<form method="get" action="/brain" class="flex gap-2 mb-6">
+  <input name="q" value="{{ q or '' }}" placeholder="how do refunds get handled?" class="flex-1 bg-ink-800 border border-white/10 rounded px-3 py-2 text-sm text-gray-100" />
+  <select name="function" class="bg-ink-800 border border-white/10 rounded px-3 py-2 text-sm text-gray-100">
+    <option value="">All functions</option>
+    {% for f in functions %}<option value="{{ f.slug }}" {% if function == f.slug %}selected{% endif %}>{{ f.label }}</option>{% endfor %}
+  </select>
+  <button class="bg-accent rounded px-4 text-sm text-white hover:bg-blue-500">Search</button>
+</form>
+
+{% if q %}
+<div class="grid md:grid-cols-2 gap-5">
+  <div class="card p-5">
+    <h2 class="font-semibold text-gray-200 mb-3 text-sm">Procedures ({{ procedures | length }})</h2>
+    {% if procedures %}
+    <ul class="divide-y divide-white/5">
+      {% for p in procedures %}
+      <li class="py-3">
+        <a class="ink-link text-sm" href="/procedures/{{ p.id }}">{{ p.title }}</a>
+        <span class="text-xs text-gray-500 ml-2">{{ '%.2f' | format(p.score) }}</span>
+        <div class="text-xs text-gray-500">{{ p.function_slug or '—' }}</div>
+        <div class="text-xs text-gray-400 mt-1">{{ p.summary[:200] }}</div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-xs text-gray-500">No procedure hits.</p>
+    {% endif %}
+  </div>
+
+  <div class="card p-5">
+    <h2 class="font-semibold text-gray-200 mb-3 text-sm">SOPs ({{ sops | length }})</h2>
+    {% if sops %}
+    <ul class="divide-y divide-white/5">
+      {% for s in sops %}
+      <li class="py-3">
+        <a class="ink-link text-sm" href="/sops/{{ s.id }}">{{ s.title }}</a>
+        <span class="text-xs text-gray-500 ml-2">{{ '%.2f' | format(s.score) }}</span>
+        <div class="text-xs text-gray-500">{{ s.source_kind }} · {{ s.org_label or '—' }}</div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-xs text-gray-500">No SOP hits.</p>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<div class="card p-8 text-center text-gray-400">
+  Enter a query above. Try: "refunds over $500", "what should on-call do", "vendor onboarding".
+</div>
+{% endif %}
+{% endblock %}

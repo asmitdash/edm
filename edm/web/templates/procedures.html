@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Procedures{% endblock %}
+{% block content %}
+<div class="flex items-end justify-between mb-4 flex-wrap gap-3">
+  <div>
+    <h1 class="text-2xl font-semibold text-white">Procedures</h1>
+    <p class="text-sm text-gray-400">Cross-functional how-to units extracted by the Company Brain.</p>
+  </div>
+  <form method="get" action="/procedures" class="flex items-end gap-2">
+    <select name="function" class="bg-ink-800 text-gray-100 text-sm rounded px-2 py-1 border border-white/10">
+      <option value="">All functions</option>
+      {% for f in functions %}
+        <option value="{{ f.slug }}" {% if selected_function == f.slug %}selected{% endif %}>{{ f.label }}</option>
+      {% endfor %}
+    </select>
+    <button class="text-sm border border-white/10 rounded px-3 py-1 text-gray-200 hover:bg-white/5">Filter</button>
+  </form>
+</div>
+
+{% if procedures %}
+<div class="card overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="text-left text-gray-400 border-b border-white/5">
+      <tr>
+        <th class="px-4 py-3">Title</th>
+        <th class="px-4 py-3">Function</th>
+        <th class="px-4 py-3">Owner</th>
+        <th class="px-4 py-3">Steps</th>
+        <th class="px-4 py-3">Guardrails</th>
+        <th class="px-4 py-3">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in procedures %}
+      <tr class="border-b border-white/5 hover:bg-white/5">
+        <td class="px-4 py-3"><a class="ink-link" href="/procedures/{{ p.id }}">{{ p.title }}</a><div class="text-xs text-gray-500 mt-1">{{ p.summary }}</div></td>
+        <td class="px-4 py-3 text-gray-300">{{ p.function_label or '—' }}</td>
+        <td class="px-4 py-3 text-gray-300">{{ p.owner_role or '—' }}</td>
+        <td class="px-4 py-3 text-gray-300">{{ p.n_steps }}</td>
+        <td class="px-4 py-3 text-gray-300">{{ p.n_guardrails }}</td>
+        <td class="px-4 py-3 text-gray-400">{{ p.status }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card p-8 text-center text-gray-400">
+  No procedures yet. Upload an email thread, support ticket, wiki page, or policy doc and the Brain will extract them.
+</div>
+{% endif %}
+{% endblock %}
